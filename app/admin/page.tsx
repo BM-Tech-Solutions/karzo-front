@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react" // <-- add useState
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Header } from "@/components/header"
@@ -19,6 +19,33 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
+
+  // --- NEW: State for candidates ---
+  const [candidates, setCandidates] = useState<any[]>([])
+  const [loadingCandidates, setLoadingCandidates] = useState(true)
+  const [errorCandidates, setErrorCandidates] = useState<string | null>(null)
+
+  // --- NEW: Fetch candidates from API ---
+  useEffect(() => {
+    const fetchCandidates = async () => {
+      setLoadingCandidates(true)
+      setErrorCandidates(null)
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("karzo_token") : null
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/candidates`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (!res.ok) throw new Error("Failed to fetch candidates")
+        const data = await res.json()
+        setCandidates(data)
+      } catch (err: any) {
+        setErrorCandidates(err.message || "Error loading candidates")
+      } finally {
+        setLoadingCandidates(false)
+      }
+    }
+    fetchCandidates()
+  }, [])
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "admin")) {
@@ -127,32 +154,38 @@ export default function AdminDashboardPage() {
                   <CardDescription>Manage candidate profiles and interview status</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead>Interviews</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mockCandidates.map((candidate) => (
-                        <TableRow key={candidate.id}>
-                          <TableCell className="font-medium">{candidate.name}</TableCell>
-                          <TableCell>{candidate.email}</TableCell>
-                          <TableCell>{candidate.phone}</TableCell>
-                          <TableCell>{candidate.interviews.length}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/admin/candidates/${candidate.id}`}>View</Link>
-                            </Button>
-                          </TableCell>
+                  {loadingCandidates ? (
+                    <div>Loading candidates...</div>
+                  ) : errorCandidates ? (
+                    <div className="text-red-500">{errorCandidates}</div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Phone</TableHead>
+                          <TableHead>Interviews</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {candidates.map((candidate) => (
+                          <TableRow key={candidate.id}>
+                            <TableCell className="font-medium">{candidate.full_name || candidate.email}</TableCell>
+                            <TableCell>{candidate.email}</TableCell>
+                            <TableCell>{candidate.phone || "-"}</TableCell>
+                            <TableCell>{candidate.interviews ? candidate.interviews.length : 0}</TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/admin/candidates/${candidate.id}`}>View</Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
