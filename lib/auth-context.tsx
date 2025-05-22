@@ -5,7 +5,6 @@ import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
-// Mock user data types
 export type UserRole = "candidate" | "admin"
 
 export interface User {
@@ -26,23 +25,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Mock users for testing
-const mockUsers: User[] = [
-  {
-    id: "1",
-    email: "candidate@example.com",
-    name: "John Doe",
-    role: "candidate",
-    profilePicture: "/placeholder.svg?height=200&width=200",
-  },
-  {
-    id: "2",
-    email: "admin@example.com",
-    name: "Admin User",
-    role: "admin",
-    profilePicture: "/placeholder.svg?height=200&width=200",
-  },
-]
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/auth"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -50,10 +33,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    // Check for saved user in localStorage
+    // Check for saved user and token in localStorage
     if (typeof window !== "undefined") {
       const savedUser = localStorage.getItem("karzo_user")
-      if (savedUser) {
+      const token = localStorage.getItem("karzo_token")
+      if (
+        savedUser &&
+        savedUser !== "undefined" && // <-- Add this check
+        token
+      ) {
         setUser(JSON.parse(savedUser))
       }
       setIsLoading(false)
@@ -62,27 +50,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
-
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      const foundUser = mockUsers.find((u) => u.email === email)
-
-      if (foundUser) {
-        setUser(foundUser)
-        localStorage.setItem("karzo_user", JSON.stringify(foundUser))
-
-        // Redirect based on role
-        if (foundUser.role === "admin") {
-          router.push("/admin")
-        } else {
-          router.push("/dashboard")
-        }
-      } else {
-        throw new Error("Invalid credentials")
+      const res = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.detail || "Login failed")
       }
-    } catch (error) {
+      const data = await res.json()
+      const { access_token, user: userData } = data
+
+      localStorage.setItem("karzo_token", access_token)
+      localStorage.setItem("karzo_user", JSON.stringify(userData))
+      setUser(userData)
+
+      // Redirect based on role
+      if (userData.role === "admin") {
+        router.push("/admin")
+      } else {
+        router.push("/dashboard")
+      }
+    } catch (error: any) {
       throw error
     } finally {
       setIsLoading(false)
@@ -91,58 +82,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (email: string, password: string, name: string) => {
     setIsLoading(true)
-
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      // Check if user already exists
-      if (mockUsers.some((u) => u.email === email)) {
-        throw new Error("User already exists")
+      const res = await fetch(`${API_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, full_name: name }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.detail || "Registration failed")
       }
-
-      const newUser: User = {
-        id: `${mockUsers.length + 1}`,
-        email,
-        name,
-        role: "candidate",
-        profilePicture: "/placeholder.svg?height=200&width=200",
-      }
-
-      // In a real app, we would save this to the backend
-      mockUsers.push(newUser)
-
-      // Changed: Redirect to login page instead of dashboard
+      // Optionally, auto-login or redirect to login page
       router.push("/login")
-    } catch (error) {
+    } catch (error: any) {
       throw error
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Updated logout function to be async
   const logout = async () => {
-    try {
-      // Clear user state
-      setUser(null)
-
-      // Clear local storage
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("karzo_user")
-      }
-
-      // Add a small delay to ensure state updates before navigation
-      await new Promise((resolve) => setTimeout(resolve, 100))
-
-      // Navigate to home page
-      router.push("/")
-    } catch (error) {
-      console.error("Logout error:", error)
+    setUser(null)
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("karzo_user")
+      localStorage.removeItem("karzo_token")
     }
+    // Remove router.push("/") from here
   }
 
-  return <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
@@ -151,4 +123,16 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider")
   }
   return context
+}
+
+
+// Helper for authenticated API requests
+export async function fetchWithAuth(input: RequestInfo, init: RequestInit = {}) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("karzo_token") : null;
+  const headers = {
+    ...(init.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    "Content-Type": "application/json",
+  };
+  return fetch(input, { ...init, headers });
 }

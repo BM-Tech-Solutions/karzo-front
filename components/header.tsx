@@ -8,37 +8,69 @@ import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+
+// Translation interface
+interface Translations {
+  welcome: string;
+  login: string;
+  register: string;
+  logout: string;
+}
+
+const translations = {
+  en: {
+    welcome: "Welcome",
+    login: "Login", 
+    register: "Register",
+    logout: "Logout"
+  },
+  fr: {
+    welcome: "Bienvenue",
+    login: "Connexion",
+    register: "S'inscrire", 
+    logout: "Déconnexion"
+  }
+};
 
 export function Header() {
   const { user, logout } = useAuth()
   const pathname = usePathname()
-  const [isClient, setIsClient] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [currentLang, setCurrentLang] = useState<'en' | 'fr'>('en')
+  const router = useRouter()
 
-  // Use useEffect to ensure we're rendering on the client
   useEffect(() => {
-    setIsClient(true)
-  }, [])
+    if (typeof window !== "undefined") {
+      const savedLang = localStorage.getItem("karzo_language") as 'en' | 'fr' || 'en';
+      setCurrentLang(savedLang);
+    }
+  }, []);
 
-  // Check if the current page is admin
-  const isAdmin = pathname.startsWith("/admin")
+  const t = (key: keyof Translations): string => {
+    return translations[currentLang][key];
+  };
 
-  // Determine if we should show the auth buttons based on the path
-  const showAuthButtons = !pathname.includes("/interview/room")
+  const handleLanguageChange = () => {
+    const newLang = currentLang === "en" ? "fr" : "en";
+    setCurrentLang(newLang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("karzo_language", newLang);
+    }
+  };
+
+  // Removed manual theme initialization useEffect
 
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true)
       await logout()
+      router.push("/")
     } catch (error) {
       console.error("Logout error:", error)
     } finally {
       setIsLoggingOut(false)
     }
-  }
-
-  if (!isClient) {
-    return null // Return null on server-side to prevent hydration mismatch
   }
 
   return (
@@ -51,22 +83,28 @@ export function Header() {
           <MainNav />
         </div>
         <div className="flex items-center space-x-2">
-          <LanguageSwitch />
+          <Button 
+            variant="outline" 
+            onClick={handleLanguageChange}
+            className="px-4 py-2"
+          >
+            {currentLang.toUpperCase()}
+          </Button>
           <ModeToggle />
-          {showAuthButtons && isClient && (
+          {!pathname.includes("/interview/room") && (
             <>
               {user ? (
                 <Button variant="ghost" onClick={handleLogout} disabled={isLoggingOut}>
-                  {isLoggingOut ? "Logging out..." : "Logout"}
+                  {isLoggingOut ? t("logout") : t("logout")}
                 </Button>
               ) : (
                 <>
                   <Button variant="ghost" asChild>
-                    <Link href={isAdmin ? "/admin/login" : "/login"}>Login</Link>
+                    <Link href={pathname.startsWith("/admin") ? "/admin/login" : "/login"}>{t("login")}</Link>
                   </Button>
-                  {!isAdmin && (
+                  {!pathname.startsWith("/admin") && (
                     <Button asChild>
-                      <Link href="/register">Register</Link>
+                      <Link href="/register">{t("register")}</Link>
                     </Button>
                   )}
                 </>
