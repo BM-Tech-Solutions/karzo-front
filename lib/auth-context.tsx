@@ -34,19 +34,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check for saved user and token in localStorage
-    if (typeof window !== "undefined") {
-      const savedUser = localStorage.getItem("karzo_user")
-      const token = localStorage.getItem("karzo_token")
-      if (
-        savedUser &&
-        savedUser !== "undefined" && // <-- Add this check
-        token
-      ) {
-        setUser(JSON.parse(savedUser))
+    async function validateToken() {
+      if (typeof window !== "undefined") {
+        const savedUser = localStorage.getItem("karzo_user")
+        const token = localStorage.getItem("karzo_token")
+        
+        if (savedUser && savedUser !== "undefined" && token) {
+          try {
+            // Validate token with backend
+            const response = await fetch(`${API_URL}/validate-token`, {
+              method: "GET",
+              headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+              }
+            });
+            
+            if (response.ok) {
+              // Token is valid, set the user
+              setUser(JSON.parse(savedUser));
+            } else {
+              // Token is invalid, clear storage
+              localStorage.removeItem("karzo_user");
+              localStorage.removeItem("karzo_token");
+            }
+          } catch (error) {
+            // If there's an error, clear the invalid data
+            localStorage.removeItem("karzo_user");
+            localStorage.removeItem("karzo_token");
+          }
+        }
+        setIsLoading(false);
       }
-      setIsLoading(false)
     }
-  }, [])
+    
+    validateToken();
+  }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
