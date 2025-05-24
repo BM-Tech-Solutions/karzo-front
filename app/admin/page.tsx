@@ -2,30 +2,35 @@
 
 import { cn } from "@/lib/utils"
 
-import { useEffect, useState } from "react" // <-- add useState
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AuthProvider } from "@/lib/auth-context"
-import { mockAdminStats, mockCandidates, mockInterviews, mockJobs } from "@/lib/mock-data"
-import { Calendar, Clock, Download, Search, Users, Video } from "lucide-react"
+import { mockAdminStats, mockCandidates, mockInterviews } from "@/lib/mock-data"
+import { Calendar, Clock, Download, Plus, Search, Users, Video } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { fetchJobs } from "@/lib/api-service"
 
 export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
 
-  // --- NEW: State for candidates ---
+  // --- State for candidates ---
   const [candidates, setCandidates] = useState<any[]>([])
   const [loadingCandidates, setLoadingCandidates] = useState(true)
   const [errorCandidates, setErrorCandidates] = useState<string | null>(null)
+  
+  // --- State for jobs ---
+  const [jobs, setJobs] = useState<any[]>([])
+  const [loadingJobs, setLoadingJobs] = useState(true)
+  const [errorJobs, setErrorJobs] = useState<string | null>(null)
 
-  // --- NEW: Fetch candidates from API ---
+  // --- Fetch candidates from API ---
   useEffect(() => {
     const fetchCandidates = async () => {
       setLoadingCandidates(true)
@@ -46,6 +51,29 @@ export default function AdminDashboardPage() {
     }
     fetchCandidates()
   }, [])
+
+  // --- Fetch jobs from API ---
+  useEffect(() => {
+    const getJobs = async () => {
+      if (!isLoading && (!user || user.role !== "admin")) {
+        return
+      }
+
+      try {
+        setLoadingJobs(true)
+        setErrorJobs(null)
+        const jobsData = await fetchJobs()
+        setJobs(jobsData)
+      } catch (error: any) {
+        console.error("Error fetching jobs:", error)
+        setErrorJobs(error.message || "Error loading jobs")
+      } finally {
+        setLoadingJobs(false)
+      }
+    }
+
+    getJobs()
+  }, [user, isLoading])
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "admin")) {
@@ -71,11 +99,10 @@ export default function AdminDashboardPage() {
 
   // Get job title by ID
   const getJobTitle = (jobId: string) => {
-    const job = mockJobs.find((job) => job.id === jobId)
+    const job = jobs.find((job) => job.id === jobId)
     return job ? job.title : "Unknown Position"
   }
 
-  // REMOVE <AuthProvider> from here
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -140,6 +167,12 @@ export default function AdminDashboardPage() {
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input type="search" placeholder="Search..." className="w-[200px] pl-8 md:w-[300px]" />
                 </div>
+                <Button asChild>
+                  <Link href="/admin/jobs/new">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Job
+                  </Link>
+                </Button>
                 <Button>
                   <Download className="mr-2 h-4 w-4" />
                   Export
@@ -253,32 +286,52 @@ export default function AdminDashboardPage() {
                   <CardDescription>Manage job postings and interview questions</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Company</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Posted Date</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mockJobs.map((job) => (
-                        <TableRow key={job.id}>
-                          <TableCell className="font-medium">{job.title}</TableCell>
-                          <TableCell>{job.company}</TableCell>
-                          <TableCell>{job.location}</TableCell>
-                          <TableCell>{job.postedDate}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link href={`/admin/jobs/${job.id}`}>Edit</Link>
-                            </Button>
-                          </TableCell>
+                  {loadingJobs ? (
+                    <div>Loading jobs...</div>
+                  ) : errorJobs ? (
+                    <div className="text-red-500">{errorJobs}</div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Company</TableHead>
+                          <TableHead>Location</TableHead>
+                          <TableHead>Posted Date</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {jobs.length > 0 ? (
+                          jobs.map((job) => (
+                            <TableRow key={job.id}>
+                              <TableCell className="font-medium">{job.title}</TableCell>
+                              <TableCell>{job.company}</TableCell>
+                              <TableCell>{job.location}</TableCell>
+                              <TableCell>{job.posted_date}</TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="sm" asChild>
+                                  <Link href={`/admin/jobs/${job.id}`}>Edit</Link>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-4">
+                              <p className="text-muted-foreground mb-4">No jobs found</p>
+                              <Button asChild>
+                                <Link href="/admin/jobs/new">
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Add Job
+                                </Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

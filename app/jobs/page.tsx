@@ -1,26 +1,45 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { AuthProvider } from "@/lib/auth-context"
-import { mockJobs } from "@/lib/mock-data"
 import { Input } from "@/components/ui/input"
 import { Search, MapPin, Building, Calendar } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { fetchJobs, Job } from "@/lib/api-service"
+import { format } from "date-fns"
 
 export default function JobsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [locationFilter, setLocationFilter] = useState("all")
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Add console log to debug
-  console.log("Mock Jobs:", mockJobs)
+  useEffect(() => {
+    const getJobs = async () => {
+      try {
+        setLoading(true)
+        const data = await fetchJobs()
+        setJobs(data)
+        setError(null)
+      } catch (err) {
+        console.error("Error fetching jobs:", err)
+        setError("Failed to load jobs. Please try again later.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    getJobs()
+  }, [])
 
   // Filter jobs based on search term and location
-  const filteredJobs = mockJobs.filter((job) => {
+  const filteredJobs = jobs.filter((job) => {
     const matchesSearch =
       searchTerm === "" ||
       job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -34,7 +53,17 @@ export default function JobsPage() {
   })
 
   // Get unique locations for filter
-  const locations = Array.from(new Set(mockJobs.map((job) => job.location)))
+  const locations = Array.from(new Set(jobs.map((job) => job.location)))
+
+  // Format date
+  const formatPostedDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString)
+      return format(date, "MMM d, yyyy")
+    } catch (error) {
+      return dateString
+    }
+  }
 
   return (
     <AuthProvider>
@@ -132,7 +161,21 @@ export default function JobsPage() {
               </div>
 
               <div className="md:col-span-3 space-y-6">
-                {filteredJobs && filteredJobs.length > 0 ? (
+                {loading ? (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                      <h3 className="text-xl font-medium mt-4">Loading jobs...</h3>
+                    </CardContent>
+                  </Card>
+                ) : error ? (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <h3 className="text-xl font-medium mb-2 text-destructive">Error</h3>
+                      <p className="text-muted-foreground text-center max-w-md">{error}</p>
+                    </CardContent>
+                  </Card>
+                ) : filteredJobs && filteredJobs.length > 0 ? (
                   filteredJobs.map((job) => (
                     <Card key={job.id}>
                       <CardHeader className="pb-3">
@@ -155,7 +198,7 @@ export default function JobsPage() {
                           </div>
                           <div className="flex items-center text-sm text-muted-foreground">
                             <Calendar className="h-4 w-4 mr-1" />
-                            Posted {job.postedDate}
+                            Posted {formatPostedDate(job.posted_date)}
                           </div>
                         </div>
                         <p className="text-sm mb-4">{job.description}</p>

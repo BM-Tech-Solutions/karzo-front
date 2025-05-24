@@ -7,7 +7,6 @@ import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { AuthProvider } from "@/lib/auth-context"
-import { mockJobs } from "@/lib/mock-data"
 import { ArrowLeft, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
@@ -17,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { Badge } from "@/components/ui/badge"
+import { fetchJob, updateJob } from "@/lib/api-service"
 import type { Params } from "next/dist/shared/lib/router/utils/route-matcher"
 
 export default function JobDetailPage({ params }: { params: Params }) {
@@ -29,21 +29,36 @@ export default function JobDetailPage({ params }: { params: Params }) {
   const [newRequirement, setNewRequirement] = useState("")
   const { user, isLoading } = useAuth()
   const router = useRouter()
-
-  const job = mockJobs.find((j) => j.id === id)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (job) {
-      setTitle(job.title)
-      setCompany(job.company)
-      setLocation(job.location)
-      setDescription(job.description)
-      setRequirements(job.requirements)
+    const getJobDetails = async () => {
+      if (!isLoading && (!user || user.role !== "admin")) {
+        router.push("/login")
+        return
+      }
+
+      try {
+        setLoading(true)
+        const jobData = await fetchJob(id)
+        setTitle(jobData.title)
+        setCompany(jobData.company)
+        setLocation(jobData.location)
+        setDescription(jobData.description)
+        setRequirements(jobData.requirements)
+        setError(null)
+      } catch (err) {
+        console.error("Error fetching job:", err)
+        setError("Failed to load job details. Please try again later.")
+      } finally {
+        setLoading(false)
+      }
     }
-    if (!isLoading && (!user || user.role !== "admin")) {
-      router.push("/login")
-    }
-  }, [user, isLoading, router, job])
+
+    getJobDetails()
+  }, [id, user, isLoading, router])
 
   const handleAddRequirement = () => {
     if (newRequirement.trim()) {
@@ -56,14 +71,31 @@ export default function JobDetailPage({ params }: { params: Params }) {
     setRequirements(requirements.filter((_, i) => i !== index))
   }
 
-  const handleSave = () => {
-    // Simulate API call
-    setTimeout(() => {
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      await updateJob(id, {
+        title,
+        company,
+        location,
+        description,
+        requirements,
+      })
+      
       toast({
         title: "Job updated",
         description: "The job posting has been updated successfully.",
       })
-    }, 500)
+    } catch (err) {
+      console.error("Error updating job:", err)
+      toast({
+        title: "Update failed",
+        description: "There was an error updating the job. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   // Mock interview questions
@@ -104,8 +136,42 @@ export default function JobDetailPage({ params }: { params: Params }) {
     return <div>Loading...</div>
   }
 
-  if (!job) {
-    return <div>Job not found</div>
+  if (loading) {
+    return (
+      <AuthProvider>
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1 container py-8">
+            <div className="max-w-4xl mx-auto flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          </main>
+        </div>
+      </AuthProvider>
+    )
+  }
+
+  if (error) {
+    return (
+      <AuthProvider>
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1 container py-8">
+            <div className="max-w-4xl mx-auto">
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <h3 className="text-xl font-medium mb-2 text-destructive">Error</h3>
+                  <p className="text-muted-foreground text-center max-w-md">{error}</p>
+                  <Button className="mt-4" asChild>
+                    <Link href="/admin">Back to Dashboard</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </main>
+        </div>
+      </AuthProvider>
+    )
   }
 
   return (
@@ -134,32 +200,50 @@ export default function JobDetailPage({ params }: { params: Params }) {
               <TabsContent value="details" className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Job Information</CardTitle>
-                    <CardDescription>Edit the basic information for this job posting</CardDescription>
+                    <CardTitle>Basic Information</CardTitle>
+                    <CardDescription>Edit the basic details of this job posting</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="title">Job Title</Label>
-                      <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="company">Company</Label>
-                        <Input id="company" value={company} onChange={(e) => setCompany(e.target.value)} />
+                        <Label htmlFor="title">Job Title</Label>
+                        <Input
+                          id="title"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          placeholder="e.g. Frontend Developer"
+                        />
+                      </div>
+                      <div className="grid gap-4 grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="company">Company</Label>
+                          <Input
+                            id="company"
+                            value={company}
+                            onChange={(e) => setCompany(e.target.value)}
+                            placeholder="e.g. TechCorp"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="location">Location</Label>
+                          <Input
+                            id="location"
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                            placeholder="e.g. Remote, New York, NY"
+                          />
+                        </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="location">Location</Label>
-                        <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} />
+                        <Label htmlFor="description">Job Description</Label>
+                        <Textarea
+                          id="description"
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Describe the job role, responsibilities, and ideal candidate..."
+                          rows={6}
+                        />
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="description">Job Description</Label>
-                      <Textarea
-                        id="description"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="min-h-[120px]"
-                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -170,13 +254,29 @@ export default function JobDetailPage({ params }: { params: Params }) {
                     <CardDescription>Add or remove job requirements</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <Input
+                        value={newRequirement}
+                        onChange={(e) => setNewRequirement(e.target.value)}
+                        placeholder="Add a new requirement..."
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleAddRequirement()
+                          }
+                        }}
+                      />
+                      <Button type="button" onClick={handleAddRequirement}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
                       {requirements.map((requirement, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <Input value={requirement} readOnly className="flex-1" />
+                        <div key={index} className="flex items-center justify-between p-2 border rounded-md">
+                          <span>{requirement}</span>
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
                             onClick={() => handleRemoveRequirement(index)}
                             className="text-destructive"
                           >
@@ -184,29 +284,16 @@ export default function JobDetailPage({ params }: { params: Params }) {
                           </Button>
                         </div>
                       ))}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        placeholder="Add a new requirement..."
-                        value={newRequirement}
-                        onChange={(e) => setNewRequirement(e.target.value)}
-                        className="flex-1"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault()
-                            handleAddRequirement()
-                          }
-                        }}
-                      />
-                      <Button onClick={handleAddRequirement}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add
-                      </Button>
+                      {requirements.length === 0 && (
+                        <div className="text-center p-4 text-muted-foreground">
+                          No requirements added yet. Add some requirements above.
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button onClick={handleSave} className="ml-auto">
-                      Save Changes
+                    <Button onClick={handleSave} disabled={saving}>
+                      {saving ? "Saving..." : "Save Changes"}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -216,45 +303,36 @@ export default function JobDetailPage({ params }: { params: Params }) {
                 <Card>
                   <CardHeader>
                     <CardTitle>Interview Questions</CardTitle>
-                    <CardDescription>Customize the questions for the AI interviewer</CardDescription>
+                    <CardDescription>Manage questions for the AI interviewer to ask</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-4">
-                      {interviewQuestions.map((question, index) => (
-                        <div key={question.id} className="border rounded-lg p-4">
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center gap-2">
-                              <div className="bg-primary text-primary-foreground w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">
-                                {index + 1}
-                              </div>
-                              <Badge variant="outline" className="capitalize">
-                                {question.type}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <ArrowLeft className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <ArrowLeft className="h-4 w-4 rotate-180" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                    {interviewQuestions.map((question) => (
+                      <div key={question.id} className="flex items-start justify-between p-3 border rounded-md">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">Q{question.order}:</span>
+                            <span>{question.question}</span>
                           </div>
-                          <Textarea defaultValue={question.question} className="mt-2" />
+                          <div className="mt-1">
+                            <Badge variant="outline">{question.type}</Badge>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                    <Button className="w-full">
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="sm">
+                            Edit
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                  <CardFooter>
+                    <Button>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Question
                     </Button>
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <Button variant="outline">Reset to Default</Button>
-                    <Button onClick={handleSave}>Save Questions</Button>
                   </CardFooter>
                 </Card>
               </TabsContent>
@@ -263,62 +341,24 @@ export default function JobDetailPage({ params }: { params: Params }) {
                 <Card>
                   <CardHeader>
                     <CardTitle>AI Interviewer Settings</CardTitle>
-                    <CardDescription>Configure the behavior of the AI interviewer</CardDescription>
+                    <CardDescription>Configure how the AI interviewer behaves</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-6">
+                  <CardContent className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="personality">AI Personality</Label>
-                      <select id="personality" className="w-full p-2 border rounded-md" defaultValue="professional">
-                        <option value="professional">Professional</option>
-                        <option value="friendly">Friendly</option>
-                        <option value="technical">Technical Expert</option>
-                        <option value="challenging">Challenging</option>
-                      </select>
-                      <p className="text-sm text-muted-foreground">
-                        Determines how the AI interviewer interacts with candidates
-                      </p>
+                      <Label htmlFor="personality">Interviewer Personality</Label>
+                      <Input id="personality" defaultValue="Professional and friendly" />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="follow-up">Follow-up Questions</Label>
-                      <select id="follow-up" className="w-full p-2 border rounded-md" defaultValue="medium">
-                        <option value="none">None</option>
-                        <option value="light">Light (1-2 follow-ups)</option>
-                        <option value="medium">Medium (2-3 follow-ups)</option>
-                        <option value="deep">Deep (3-5 follow-ups)</option>
-                      </select>
-                      <p className="text-sm text-muted-foreground">
-                        Controls how many follow-up questions the AI will ask based on candidate responses
-                      </p>
+                      <Label htmlFor="difficulty">Interview Difficulty</Label>
+                      <Input id="difficulty" type="range" min="1" max="5" defaultValue="3" />
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="duration">Target Interview Duration</Label>
-                      <select id="duration" className="w-full p-2 border rounded-md" defaultValue="30">
-                        <option value="15">15 minutes</option>
-                        <option value="30">30 minutes</option>
-                        <option value="45">45 minutes</option>
-                        <option value="60">60 minutes</option>
-                      </select>
-                      <p className="text-sm text-muted-foreground">
-                        The AI will adjust question depth to target this duration
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="intro">Custom Introduction</Label>
-                      <Textarea
-                        id="intro"
-                        placeholder="Enter a custom introduction for the AI interviewer..."
-                        className="min-h-[100px]"
-                        defaultValue="Hello! I'm the AI interviewer for the Frontend Developer position at TechCorp. I'll be asking you a series of questions to learn more about your experience and skills. Let's get started!"
-                      />
+                      <Label htmlFor="duration">Target Duration (minutes)</Label>
+                      <Input id="duration" type="number" defaultValue="30" />
                     </div>
                   </CardContent>
                   <CardFooter>
-                    <Button onClick={handleSave} className="ml-auto">
-                      Save Settings
-                    </Button>
+                    <Button>Save Settings</Button>
                   </CardFooter>
                 </Card>
               </TabsContent>

@@ -1,20 +1,88 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { AuthProvider } from "@/lib/auth-context"
-import { mockJobs } from "@/lib/mock-data"
 import { ArrowLeft, Building, Calendar, MapPin, Share2 } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { fetchJob, Job } from "@/lib/api-service"
+import { format } from "date-fns"
 
 export default function JobDetailPage({ params }: { params: { id: string } }) {
-  // Find the job
-  const job = mockJobs.find((j) => j.id === params.id)
-  if (!job) {
-    return <div>Job not found</div>
+  const [job, setJob] = useState<Job | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const getJob = async () => {
+      try {
+        setLoading(true)
+        const data = await fetchJob(params.id)
+        setJob(data)
+        setError(null)
+      } catch (err) {
+        console.error("Error fetching job:", err)
+        setError("Failed to load job details. Please try again later.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    getJob()
+  }, [params.id])
+
+  // Format date
+  const formatPostedDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString)
+      return format(date, "MMM d, yyyy")
+    } catch (error) {
+      return dateString
+    }
+  }
+
+  if (loading) {
+    return (
+      <AuthProvider>
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1 container py-8">
+            <div className="max-w-4xl mx-auto flex items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          </main>
+        </div>
+      </AuthProvider>
+    )
+  }
+
+  if (error || !job) {
+    return (
+      <AuthProvider>
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1 container py-8">
+            <div className="max-w-4xl mx-auto">
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <h3 className="text-xl font-medium mb-2 text-destructive">Error</h3>
+                  <p className="text-muted-foreground text-center max-w-md">
+                    {error || "Job not found"}
+                  </p>
+                  <Button className="mt-4" asChild>
+                    <Link href="/jobs">Back to Jobs</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </main>
+        </div>
+      </AuthProvider>
+    )
   }
 
   return (
@@ -48,7 +116,7 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Calendar className="h-4 w-4 mr-1" />
-                        Posted {job.postedDate}
+                        Posted {formatPostedDate(job.posted_date)}
                       </div>
                     </div>
                   </div>
