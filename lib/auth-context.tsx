@@ -10,8 +10,10 @@ export type UserRole = "candidate" | "admin"
 export interface User {
   id: string
   email: string
-  name: string
+  full_name: string  // Changed from 'name' to 'full_name' to match backend
+  phone: string
   role: UserRole
+  resume_url: string
   profilePicture?: string
 }
 

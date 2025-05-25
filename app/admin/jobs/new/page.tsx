@@ -53,7 +53,7 @@ export default function NewJobPage() {
       })
       return
     }
-
+  
     try {
       setCreating(true)
       const newJob = await createJob({
@@ -69,8 +69,8 @@ export default function NewJobPage() {
         description: "The job posting has been created successfully.",
       })
       
-      // Redirect to the job detail page
-      router.push(`/admin/jobs/${newJob.id}`)
+      // Force a hard redirect to ensure navigation works
+      window.location.href = '/admin'
     } catch (err) {
       console.error("Error creating job:", err)
       toast({

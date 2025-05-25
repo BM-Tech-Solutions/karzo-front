@@ -11,9 +11,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { mockJobs } from "@/lib/mock-data"
 import { AuthProvider } from "@/lib/auth-context"
 import { Textarea } from "@/components/ui/textarea"
+import { fetchJobs } from "@/lib/api-service"
+import { Job } from "@/lib/api-service"
 
 export default function ApplyPage() {
   const { user, isLoading } = useAuth()
@@ -26,8 +27,25 @@ export default function ApplyPage() {
   const [phone, setPhone] = useState("")
   const [coverLetter, setCoverLetter] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [loadingJobs, setLoadingJobs] = useState(true)
 
   useEffect(() => {
+    // Fetch real jobs from the API
+    const getJobs = async () => {
+      try {
+        setLoadingJobs(true)
+        const jobsData = await fetchJobs()
+        setJobs(jobsData)
+      } catch (error) {
+        console.error("Error fetching jobs:", error)
+      } finally {
+        setLoadingJobs(false)
+      }
+    }
+
+    getJobs()
+
     // Pre-fill job from query parameter
     const jobId = searchParams.get("job")
     if (jobId) {
@@ -36,28 +54,63 @@ export default function ApplyPage() {
 
     // Pre-fill user information if logged in
     if (user) {
-      setName(user.name)
+      setName(user.full_name || "")
       setEmail(user.email)
-      setPhone("") // We don't have phone in our mock data
+      setPhone(user.phone || "")  // Already correctly using phone
+      
+      // Add state for resume URL
+      if (user.resume_url) {
+        // Set some indication that resume is already uploaded
+        const resumeInfo = document.getElementById('resume-info');
+        if (resumeInfo) {
+          resumeInfo.textContent = `Current resume: ${user.resume_url.split('/').pop()}`;
+        }
+      }
     }
   }, [user, searchParams])
 
+  // Update the handleSubmit function in your apply page
+  
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+    e.preventDefault();
+  
     if (!selectedJob || !name || !email) {
-      return
+      return;
     }
-
-    setIsSubmitting(true)
-
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    // Redirect to interview page
-    router.push("/interview/room")
-  }
-
+  
+    setIsSubmitting(true);
+  
+    try {
+      // Get the resume file
+      const resumeInput = document.getElementById('resume') as HTMLInputElement;
+      const resumeFile = resumeInput.files?.[0];
+      
+      // Create form data for the API call
+      const formData = new FormData();
+      if (phone) formData.append('phone', phone);
+      if (resumeFile) formData.append('resume', resumeFile);
+      
+      // Update the candidate profile
+      if (user && (phone || resumeFile)) {
+        const token = localStorage.getItem('karzo_token');
+        await fetch(`http://localhost:8000/api/candidates/${user.id}/update-profile`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+      }
+      
+      // Redirect to interview page
+      router.push("/interview/room");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
   return (
     <AuthProvider>
       <div className="flex min-h-screen flex-col">
@@ -77,14 +130,20 @@ export default function ApplyPage() {
                     <Label htmlFor="job">Position</Label>
                     <Select value={selectedJob} onValueChange={setSelectedJob} required>
                       <SelectTrigger id="job">
-                        <SelectValue placeholder="Select a position" />
+                        <SelectValue placeholder={loadingJobs ? "Loading positions..." : "Select a position"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockJobs.map((job) => (
-                          <SelectItem key={job.id} value={job.id}>
-                            {job.title} - {job.company}
-                          </SelectItem>
-                        ))}
+                        {loadingJobs ? (
+                          <SelectItem value="loading" disabled>Loading positions...</SelectItem>
+                        ) : jobs.length > 0 ? (
+                          jobs.map((job) => (
+                            <SelectItem key={job.id} value={job.id.toString()}>
+                              {job.title} - {job.company}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>No positions available</SelectItem>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -119,6 +178,11 @@ export default function ApplyPage() {
                     <Label htmlFor="resume">Resume</Label>
                     <Input id="resume" type="file" />
                     <p className="text-sm text-muted-foreground">Upload your resume (PDF, DOC, or DOCX)</p>
+                    {user?.resume_url && (
+                      <p id="resume-info" className="text-sm text-green-600">
+                        Current resume: {user.resume_url.split('/').pop()}
+                      </p>
+                    )}
                   </div>
                 </form>
               </CardContent>
@@ -139,7 +203,7 @@ export default function ApplyPage() {
                 </CardHeader>
                 <CardContent>
                   {(() => {
-                    const job = mockJobs.find((job) => job.id === selectedJob)
+                    const job = jobs.find((job) => job.id.toString() === selectedJob)
                     if (!job) return null
 
                     return (

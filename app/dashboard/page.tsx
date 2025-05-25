@@ -64,7 +64,7 @@ export default function DashboardPage() {
       <main className="flex-1 container py-8">
         <div className="flex flex-col gap-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Welcome, {user.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Welcome, {user.full_name}</h1>
             <p className="text-muted-foreground">View your interview history and browse available jobs</p>
           </div>
 
