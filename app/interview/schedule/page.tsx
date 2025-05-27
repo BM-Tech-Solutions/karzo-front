@@ -11,16 +11,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { mockJobs } from "@/lib/mock-data"
 import { AuthProvider } from "@/lib/auth-context"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { fetchJobs } from "@/lib/api"; // Add this import
+import { fetchJobs } from "@/lib/api-service"
+import { createInterview } from "@/lib/api-service"
 import { useEffect } from "react"
-import { Job } from "@/types/job"
+import { Job } from "@/lib/api-service"
 
 export default function ScheduleInterviewPage() {
   const { user, isLoading } = useAuth()
@@ -53,7 +53,7 @@ export default function ScheduleInterviewPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!selectedJob || !selectedDate || !selectedTime) {
+    if (!selectedJob || !selectedDate || !selectedTime || !user) {
       return
     }
 
@@ -64,24 +64,28 @@ export default function ScheduleInterviewPage() {
       const jobDetails = jobs.find(job => job.id.toString() === selectedJob);
       
       if (jobDetails) {
-        // Store job information in localStorage for the interview flow
+        // Combine date and time for the interview
+        const interviewDate = new Date(selectedDate);
+        const [hours, minutes] = selectedTime.split(':');
+        interviewDate.setHours(parseInt(hours), parseInt(minutes));
+        
+        // Create the interview using our API service
+        const interviewData = {
+          candidate_id: Number(user.id), // Convert to number to match InterviewCreate type
+          job_id: parseInt(selectedJob),
+          date: interviewDate.toISOString(),
+          status: 'scheduled'
+        };
+        
+        console.log('Creating interview:', interviewData);
+        const createdInterview = await createInterview(interviewData);
+        console.log('Interview created successfully:', createdInterview);
+        
+        // Store job information in localStorage for the interview flow if needed
         localStorage.setItem('interview_job_id', selectedJob);
         localStorage.setItem('interview_job_title', jobDetails.title);
         localStorage.setItem('interview_company', jobDetails.company);
-        
-        // Also store requirements if needed for the interview
-        if (jobDetails.requirements) {
-          localStorage.setItem('interview_job_requirements', 
-            Array.isArray(jobDetails.requirements) 
-              ? JSON.stringify(jobDetails.requirements) 
-              : jobDetails.requirements
-          );
-        }
       }
-
-      // Continue with the existing scheduling logic
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
 
       // Redirect to dashboard
       router.push("/dashboard")

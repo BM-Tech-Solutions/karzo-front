@@ -9,12 +9,12 @@ import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { mockAdminStats, mockCandidates, mockInterviews } from "@/lib/mock-data"
+import { mockAdminStats } from "@/lib/mock-data"
 import { Calendar, Clock, Download, Plus, Search, Users, Video } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { fetchJobs } from "@/lib/api-service"
+import { fetchJobs, fetchAllInterviews, Interview } from "@/lib/api-service"
 
 export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth()
@@ -29,6 +29,11 @@ export default function AdminDashboardPage() {
   const [jobs, setJobs] = useState<any[]>([])
   const [loadingJobs, setLoadingJobs] = useState(true)
   const [errorJobs, setErrorJobs] = useState<string | null>(null)
+  
+  // --- State for interviews ---
+  const [interviews, setInterviews] = useState<Interview[]>([])
+  const [loadingInterviews, setLoadingInterviews] = useState(true)
+  const [errorInterviews, setErrorInterviews] = useState<string | null>(null)
 
   // --- Fetch candidates from API ---
   useEffect(() => {
@@ -73,6 +78,29 @@ export default function AdminDashboardPage() {
     }
 
     getJobs()
+  }, [user, isLoading])
+  
+  // --- Fetch interviews from API ---
+  useEffect(() => {
+    const getInterviews = async () => {
+      if (!isLoading && (!user || user.role !== "admin")) {
+        return
+      }
+
+      try {
+        setLoadingInterviews(true)
+        setErrorInterviews(null)
+        const interviewsData = await fetchAllInterviews()
+        setInterviews(interviewsData)
+      } catch (error: any) {
+        console.error("Error fetching interviews:", error)
+        setErrorInterviews(error.message || "Error loading interviews")
+      } finally {
+        setLoadingInterviews(false)
+      }
+    }
+
+    getInterviews()
   }, [user, isLoading])
 
   useEffect(() => {
@@ -230,51 +258,53 @@ export default function AdminDashboardPage() {
                   <CardDescription>View and manage all scheduled and completed interviews</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Candidate</TableHead>
-                        <TableHead>Position</TableHead>
-                        <TableHead>Date & Time</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mockInterviews.map((interview) => {
-                        const candidate = mockCandidates.find((c) => c.id === interview.candidateId)
-
-                        return (
-                          <TableRow key={interview.id}>
-                            <TableCell className="font-medium">{candidate?.name || "Unknown"}</TableCell>
-                            <TableCell>{getJobTitle(interview.jobId)}</TableCell>
-                            <TableCell>{formatDate(interview.scheduledFor)}</TableCell>
-                            <TableCell>
-                              <div
-                                className={cn(
-                                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                                  interview.status === "completed"
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                                    : interview.status === "scheduled"
-                                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                                      : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-                                )}
-                              >
-                                {interview.status.charAt(0).toUpperCase() + interview.status.slice(1)}
-                              </div>
-                            </TableCell>
-                            <TableCell>{interview.score ? `${interview.score}/100` : "-"}</TableCell>
-                            <TableCell>
-                              <Button variant="ghost" size="sm" asChild>
-                                <Link href={`/admin/interviews/${interview.id}`}>View</Link>
-                              </Button>
-                            </TableCell>
+                  {loadingInterviews ? (
+                    <div>Loading interviews...</div>
+                  ) : errorInterviews ? (
+                    <div className="text-red-500">{errorInterviews}</div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Candidate</TableHead>
+                          <TableHead>Position</TableHead>
+                          <TableHead>Date & Time</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {interviews.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-4">No interviews found</TableCell>
                           </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          interviews.map((interview) => (
+                            <TableRow key={interview.id}>
+                              <TableCell className="font-medium">{interview.candidate_name || interview.candidate_email || "Unknown"}</TableCell>
+                              <TableCell>{interview.job_title || getJobTitle(interview.job_id.toString())}</TableCell>
+                              <TableCell>{formatDate(interview.date)}</TableCell>
+                              <TableCell>
+                                <div className={cn(
+                                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                                  interview.status === "completed" && "bg-green-100 text-green-800",
+                                  interview.status === "scheduled" && "bg-blue-100 text-blue-800",
+                                  interview.status === "cancelled" && "bg-red-100 text-red-800"
+                                )}>
+                                  {interview.status.charAt(0).toUpperCase() + interview.status.slice(1)}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Button variant="ghost" size="sm" asChild>
+                                  <Link href={`/admin/interviews/${interview.id}`}>View</Link>
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
