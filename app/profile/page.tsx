@@ -1,62 +1,109 @@
 "use client"
 
-import { useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AuthProvider } from "@/lib/auth-context"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { profileSchema } from "@/lib/form-schema"
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Label } from "@/components/ui/label"
+import { AuthProvider } from "@/lib/auth-context"
 import { toast } from "@/components/ui/use-toast"
-import { Toaster } from "@/components/ui/toaster"
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
-
-  const form = useForm({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      bio: "",
-    },
-  })
+  
+  const [fullName, setFullName] = useState("")
+  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login")
+      return
     }
 
     if (user) {
-      form.reset({
-        name: user.name,
-        email: user.email,
-        phone: "(555) 123-4567", // Mock data
-        bio: "Frontend developer with 5 years of experience in React and TypeScript.", // Mock data
-      })
+      console.log("User data in profile:", JSON.stringify(user))
+      setFullName(user.full_name || "")
+      setEmail(user.email || "")
+      
+      // Check for phone property
+      if (user.phone) {
+        setPhone(user.phone)
+        console.log("Setting phone from user.phone:", user.phone)
+      }
+      
+      // Set resume URL
+      if (user.resume_url) {
+        setResumeUrl(user.resume_url)
+        console.log("Setting resume URL from user.resume_url:", user.resume_url)
+      }
     }
-  }, [user, isLoading, router, form])
+  }, [user, isLoading, router])
 
-  const onSubmit = async (values: any) => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been updated successfully.",
-    })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!fullName || !email) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    setIsSubmitting(true)
+    
+    try {
+      // Get the resume file
+      const resumeInput = document.getElementById('resume') as HTMLInputElement
+      const resumeFile = resumeInput.files?.[0]
+      
+      // Create form data for the API call
+      const formData = new FormData()
+      formData.append('full_name', fullName)
+      if (phone) formData.append('phone', phone)
+      if (resumeFile) formData.append('resume', resumeFile)
+      
+      // Update the candidate profile
+      if (user) {
+        const token = localStorage.getItem('karzo_token')
+        const response = await fetch(`http://localhost:8000/api/candidates/${user.id}/update-profile`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        })
+        
+        if (response.ok) {
+          toast({
+            title: "Profile updated",
+            description: "Your profile has been updated successfully",
+          })
+        } else {
+          throw new Error("Failed to update profile")
+        }
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error)
+      toast({
+        title: "Update failed",
+        description: "There was an error updating your profile",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  if (isLoading || !user) {
+  if (isLoading) {
     return <div>Loading...</div>
   }
 
@@ -65,122 +112,70 @@ export default function ProfilePage() {
       <div className="flex min-h-screen flex-col">
         <Header />
         <main className="flex-1 container py-8">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-2xl mx-auto">
             <h1 className="text-3xl font-bold tracking-tight mb-6">Your Profile</h1>
-
-            <div className="grid gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Personal Information</CardTitle>
-                  <CardDescription>Update your personal information and profile settings</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col md:flex-row gap-6 mb-6">
-                    <div className="flex flex-col items-center gap-2">
-                      <Avatar className="h-24 w-24">
-                        <AvatarImage src={user.profilePicture || "/placeholder.svg"} alt={user.name} />
-                        <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <Button variant="outline" size="sm">
-                        Change Photo
-                      </Button>
-                    </div>
-                    <div className="flex-1">
-                      <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                          <FormField
-                            control={form.control}
-                            name="name"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Full Name</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Email</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="phone"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Phone Number</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name="bio"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Bio</FormLabel>
-                                <FormControl>
-                                  <Textarea placeholder="Tell us about yourself" className="resize-none" {...field} />
-                                </FormControl>
-                                <FormDescription>
-                                  Brief description of your professional background and skills.
-                                </FormDescription>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <div className="flex justify-end">
-                            <Button type="submit">Save Changes</Button>
-                          </div>
-                        </form>
-                      </Form>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Settings</CardTitle>
-                  <CardDescription>Manage your account settings and preferences</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Personal Information</CardTitle>
+                <CardDescription>Update your profile information</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
-                    <h3 className="font-medium">Password</h3>
-                    <p className="text-sm text-muted-foreground">Change your password to keep your account secure</p>
-                    <Button variant="outline">Change Password</Button>
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input 
+                      id="fullName" 
+                      value={fullName} 
+                      onChange={(e) => setFullName(e.target.value)} 
+                      required 
+                    />
                   </div>
-
+                  
                   <div className="space-y-2">
-                    <h3 className="font-medium">Notifications</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Manage how you receive notifications about interviews and updates
-                    </p>
-                    <Button variant="outline">Notification Settings</Button>
+                    <Label htmlFor="email">Email</Label>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={email} 
+                      disabled 
+                      className="bg-muted"
+                    />
+                    <p className="text-sm text-muted-foreground">Email cannot be changed</p>
                   </div>
-                </CardContent>
-                <CardFooter className="border-t px-6 py-4">
-                  <Button variant="destructive">Delete Account</Button>
-                </CardFooter>
-              </Card>
-            </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input 
+                      id="phone" 
+                      value={phone} 
+                      onChange={(e) => setPhone(e.target.value)} 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="resume">Resume</Label>
+                    <Input id="resume" type="file" />
+                    <p className="text-sm text-muted-foreground">Upload your resume (PDF, DOC, or DOCX)</p>
+                    {resumeUrl && (
+                      <p className="text-sm text-green-600">
+                        Current resume: {resumeUrl.split('/').pop()}
+                      </p>
+                    )}
+                  </div>
+                </form>
+              </CardContent>
+              <CardFooter className="flex justify-between">
+                <Button variant="outline" onClick={() => router.push("/dashboard")}>
+                  Back to Dashboard
+                </Button>
+                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
+              </CardFooter>
+            </Card>
           </div>
         </main>
-        <Toaster />
       </div>
     </AuthProvider>
   )

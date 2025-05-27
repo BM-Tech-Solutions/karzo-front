@@ -18,6 +18,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
+import { fetchJobs } from "@/lib/api"; // Add this import
+import { useEffect } from "react"
+import { Job } from "@/types/job"
 
 export default function ScheduleInterviewPage() {
   const { user, isLoading } = useAuth()
@@ -27,6 +30,25 @@ export default function ScheduleInterviewPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedTime, setSelectedTime] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [loadingJobs, setLoadingJobs] = useState(true)
+  
+  useEffect(() => {
+    // Fetch real jobs from the API
+    const getJobs = async () => {
+      try {
+        setLoadingJobs(true)
+        const jobsData = await fetchJobs()
+        setJobs(jobsData)
+      } catch (error) {
+        console.error("Error fetching jobs:", error)
+      } finally {
+        setLoadingJobs(false)
+      }
+    }
+
+    getJobs()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,11 +59,37 @@ export default function ScheduleInterviewPage() {
 
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      // Find the selected job to store its details
+      const jobDetails = jobs.find(job => job.id.toString() === selectedJob);
+      
+      if (jobDetails) {
+        // Store job information in localStorage for the interview flow
+        localStorage.setItem('interview_job_id', selectedJob);
+        localStorage.setItem('interview_job_title', jobDetails.title);
+        localStorage.setItem('interview_company', jobDetails.company);
+        
+        // Also store requirements if needed for the interview
+        if (jobDetails.requirements) {
+          localStorage.setItem('interview_job_requirements', 
+            Array.isArray(jobDetails.requirements) 
+              ? JSON.stringify(jobDetails.requirements) 
+              : jobDetails.requirements
+          );
+        }
+      }
 
-    // Redirect to dashboard
-    router.push("/dashboard")
+      // Continue with the existing scheduling logic
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Redirect to dashboard
+      router.push("/dashboard")
+    } catch (error) {
+      console.error("Error scheduling interview:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Generate time slots
@@ -77,11 +125,15 @@ export default function ScheduleInterviewPage() {
                         <SelectValue placeholder="Select a position" />
                       </SelectTrigger>
                       <SelectContent>
-                        {mockJobs.map((job) => (
-                          <SelectItem key={job.id} value={job.id}>
-                            {job.title} - {job.company}
-                          </SelectItem>
-                        ))}
+                        {loadingJobs ? (
+                          <SelectItem value="" disabled>Loading jobs...</SelectItem>
+                        ) : (
+                          jobs.map((job) => (
+                            <SelectItem key={job.id} value={job.id.toString()}>
+                              {job.title} - {job.company}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -161,7 +213,8 @@ export default function ScheduleInterviewPage() {
                 </CardHeader>
                 <CardContent>
                   {(() => {
-                    const job = mockJobs.find((job) => job.id === selectedJob)
+                    // Use the real job data instead of mock data
+                    const job = jobs.find((job) => job.id.toString() === selectedJob)
                     if (!job) return null
 
                     return (
@@ -169,23 +222,30 @@ export default function ScheduleInterviewPage() {
                         <div>
                           <h3 className="font-medium">{job.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            {job.company} • {job.location}
+                            {job.company} {job.location && `• ${job.location}`}
                           </p>
                         </div>
 
-                        <div>
-                          <h4 className="text-sm font-medium">Description</h4>
-                          <p className="text-sm mt-1">{job.description}</p>
-                        </div>
+                        {job.description && (
+                          <div>
+                            <h4 className="text-sm font-medium">Description</h4>
+                            <p className="text-sm mt-1">{job.description}</p>
+                          </div>
+                        )}
 
-                        <div>
-                          <h4 className="text-sm font-medium">Requirements</h4>
-                          <ul className="list-disc pl-5 space-y-1 text-sm mt-1">
-                            {job.requirements.map((req, index) => (
-                              <li key={index}>{req}</li>
-                            ))}
-                          </ul>
-                        </div>
+                        {job.requirements && (
+                          <div>
+                            <h4 className="text-sm font-medium">Requirements</h4>
+                            <ul className="list-disc pl-5 space-y-1 text-sm mt-1">
+                              {Array.isArray(job.requirements) 
+                                ? job.requirements.map((req, index) => (
+                                    <li key={index}>{req}</li>
+                                  ))
+                                : <li>{job.requirements}</li>
+                              }
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )
                   })()}

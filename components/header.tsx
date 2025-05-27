@@ -16,6 +16,7 @@ interface Translations {
   login: string;
   register: string;
   logout: string;
+  dashboard: string;
 }
 
 const translations = {
@@ -23,13 +24,15 @@ const translations = {
     welcome: "Welcome",
     login: "Login", 
     register: "Register",
-    logout: "Logout"
+    logout: "Logout",
+    dashboard: "Dashboard"
   },
   fr: {
     welcome: "Bienvenue",
     login: "Connexion",
     register: "S'inscrire", 
-    logout: "Déconnexion"
+    logout: "Déconnexion",
+    dashboard: "Tableau de bord"
   }
 };
 
@@ -59,8 +62,6 @@ export function Header() {
     }
   };
 
-  // Removed manual theme initialization useEffect
-
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true)
@@ -81,6 +82,11 @@ export function Header() {
             <span className="font-bold text-xl text-primary">Karzo</span>
           </Link>
           <MainNav />
+          {user && (
+            <Button variant="ghost" asChild className="mr-2">
+              <Link href="/dashboard">{t("dashboard")}</Link>
+            </Button>
+          )}
         </div>
         <div className="flex items-center space-x-2">
           <Button 
@@ -91,7 +97,7 @@ export function Header() {
             {currentLang.toUpperCase()}
           </Button>
           <ModeToggle />
-          {!pathname.includes("/interview/room") && (
+          {pathname && !pathname.includes("/interview/room") && (
             <>
               {user ? (
                 <Button variant="ghost" onClick={handleLogout} disabled={isLoggingOut}>

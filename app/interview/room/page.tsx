@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useConversation } from "@/hooks/useConversation"
 import { AuthProvider } from "@/lib/auth-context"
 import { mockJobs } from "@/lib/mock-data"
+
 import {
   AlertCircle,
   Info,
@@ -60,42 +61,140 @@ export default function InterviewRoomPage() {
   const [showParticipants, setShowParticipants] = useState(false)
 
   // Mock job data
-  const job = mockJobs[0]
-
-  // Timer effect for interview duration
+  // Replace the mock job data with state variables
+  // const job = mockJobs[0]; // Remove this line
+  
+  // Add these state variables to your component if not already there
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [jobTitle, setJobTitle] = useState<string | null>(null)
+  const [company, setCompany] = useState<string | null>(null)
+  const [jobRequirements, setJobRequirements] = useState<string[]>([])
+  
+  // Add this useEffect to load job data from localStorage
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
-
-    if (interviewStarted) {
-      interval = setInterval(() => {
-        setCurrentTime((prev) => prev + 1)
-      }, 1000)
+    const storedJobId = localStorage.getItem('interview_job_id')
+    const storedJobTitle = localStorage.getItem('interview_job_title')
+    const storedCompany = localStorage.getItem('interview_company')
+    const storedRequirements = localStorage.getItem('interview_job_requirements')
+    
+    if (storedJobId) {
+      setJobId(storedJobId)
+      
+      if (storedJobTitle) setJobTitle(storedJobTitle)
+      if (storedCompany) setCompany(storedCompany)
+      
+      // If we have the job ID but not the title or company, fetch them
+      if (!storedJobTitle || !storedCompany) {
+        fetchJobDetails(storedJobId)
+      }
+      
+      // Parse requirements if available
+      if (storedRequirements) {
+        try {
+          const parsedRequirements = JSON.parse(storedRequirements)
+          setJobRequirements(Array.isArray(parsedRequirements) ? parsedRequirements : [])
+        } catch (e) {
+          console.error('Error parsing job requirements:', e)
+        }
+      }
     }
-
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [interviewStarted])
-
-  // Format time for display
+  }, [])
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
-  // Handle starting the interview
   const handleStartInterview = async () => {
     await startConversation({
-      jobOffer: job.title,
-      fullName: user?.name || "Candidate",
-    })
-    setInterviewStarted(true)
-  }
+      jobOffer: jobTitle || "Frontend Developer", // Fallback if not available
+      fullName: user?.full_name || "",
+    });
+    setInterviewStarted(true);
+    
+    // Start the timer
+    const timer = setInterval(() => {
+      setCurrentTime(prev => prev + 1);
+    }, 1000);
+    
+    // Store the timer ID to clear it later
+    return () => clearInterval(timer);
+  };
 
-  // Handle ending the interview
+  // Add this function to fetch job details
+  const fetchJobDetails = async (id: string) => {
+    try {
+      // Get the authentication token from localStorage
+      const token = localStorage.getItem('karzo_token')
+      
+      const response = await fetch(`http://localhost:8000/api/jobs/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        const jobData = await response.json()
+        setJobTitle(jobData.title)
+        setCompany(jobData.company)
+        
+        // Store these values for future use
+        localStorage.setItem('interview_job_title', jobData.title)
+        localStorage.setItem('interview_company', jobData.company)
+      }
+    } catch (error) {
+      console.error('Error fetching job details:', error)
+    }
+  }
+  
+  // Modify your handleEndInterview function
   const handleEndInterview = async () => {
     await stopConversation()
+    
+    // Save interview data to the database
+    try {
+      if (!user || !jobId) {
+        console.error('Missing user or job data')
+        router.push('/review')
+        return
+      }
+      
+      // Get the authentication token from localStorage
+      const token = localStorage.getItem('karzo_token')
+      
+      const response = await fetch('http://localhost:8000/api/interviews/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          candidate_id: user.id,
+          job_id: parseInt(jobId),
+          date: new Date().toISOString(),
+          status: 'completed',
+          // You can add score and feedback later if available
+        }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to save interview')
+      }
+      
+      // Get the interview ID from the response
+      const data = await response.json()
+      
+      // Store interview ID for the review page
+      localStorage.setItem('interview_id', data.id.toString())
+      
+      // Redirect to review page
+      router.push('/review')
+    } catch (error) {
+      console.error('Error saving interview:', error)
+      // Still redirect to review page even if saving fails
+      router.push('/review')
+    }
+    
     setInterviewStarted(false)
   }
 
@@ -121,7 +220,7 @@ export default function InterviewRoomPage() {
                 <div>
                   <h1 className="text-xl font-bold tracking-tight flex items-center">
                     <span className="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
-                    {job.title} Interview
+                    {jobTitle || "Job"} Interview
                   </h1>
                   <p className="text-sm text-muted-foreground">{connectionStatus}</p>
                 </div>
@@ -184,7 +283,7 @@ export default function InterviewRoomPage() {
                       </div>
                       <h2 className="text-xl font-medium">Ready to start your interview?</h2>
                       <p className="text-muted-foreground mt-2 mb-6">
-                        You'll be connected with an AI interviewer for your {job.title} position
+                        You'll be connected with an AI interviewer for your {jobTitle || "Job"} position
                       </p>
                     </div>
                     <Button size="lg" onClick={handleStartInterview}>
@@ -227,7 +326,7 @@ export default function InterviewRoomPage() {
                               <VideoOff className="h-8 w-8 text-muted" />
                             ) : (
                               <Avatar className="h-16 w-16">
-                                <AvatarFallback>{user?.name?.charAt(0) || "U"}</AvatarFallback>
+                                <AvatarFallback>{user?.full_name?.charAt(0) || "U"}</AvatarFallback>
                               </Avatar>
                             )}
                           </div>
@@ -275,7 +374,7 @@ export default function InterviewRoomPage() {
                               <div className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
                                 <div className="flex items-center gap-2">
                                   <Avatar className="h-8 w-8">
-                                    <AvatarFallback>{user?.name?.charAt(0) || "U"}</AvatarFallback>
+                                    <AvatarFallback>{user?.full_name?.charAt(0) || "U"}</AvatarFallback>
                                   </Avatar>
                                   <div>
                                     <p className="text-sm font-medium">You</p>
@@ -484,11 +583,11 @@ export default function InterviewRoomPage() {
                         </div>
 
                         <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
-                          <h5 className="text-sm font-medium mb-2">For {job.title} Position:</h5>
+                          <h5 className="text-sm font-medium mb-2">For {jobTitle} Position:</h5>
                           <p className="text-sm text-muted-foreground">
                             Focus on demonstrating your knowledge of{" "}
-                            {job.requirements[0].split(" ").slice(0, 3).join(" ")}
-                            and {job.requirements[1].split(" ").slice(0, 3).join(" ")}. Be prepared to discuss your
+                            {jobRequirements[0] ? jobRequirements[0].split(" ").slice(0, 3).join(" ") : "relevant technologies"}
+                            {jobRequirements[1] ? ` and ${jobRequirements[1].split(" ").slice(0, 3).join(" ")}` : ""}. Be prepared to discuss your
                             experience with these technologies in detail.
                           </p>
                         </div>

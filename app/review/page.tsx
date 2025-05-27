@@ -9,32 +9,277 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { AuthProvider } from "@/lib/auth-context"
 import { CheckCircle, Download, Star } from "lucide-react"
+import { useEffect, useState } from 'react'
+
+// Define interface for interview results
+interface InterviewResults {
+  score: number;
+  duration: string;
+  jobTitle: string;
+  company: string;
+  feedback: string;
+  strengths: string[];
+  improvements: string[];
+  nextSteps: string;
+}
 
 export default function ReviewPage() {
   const { user } = useAuth()
   const router = useRouter()
+  const [interviewResults, setInterviewResults] = useState<InterviewResults | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock interview results
-  const interviewResults = {
-    score: 85,
-    duration: "28:45",
-    jobTitle: "Frontend Developer",
-    company: "TechCorp",
-    feedback:
-      "The candidate demonstrated strong technical knowledge and communication skills. They provided clear examples of past experience and showed enthusiasm for the role. Some areas for improvement include more specific details about project contributions and clearer articulation of career goals.",
-    strengths: [
-      "Technical knowledge of React and TypeScript",
-      "Clear communication style",
-      "Problem-solving approach",
-      "Relevant project experience",
-    ],
-    improvements: [
-      "More specific examples of individual contributions",
-      "Clearer articulation of career goals",
-      "More detailed responses to behavioral questions",
-    ],
-    nextSteps:
-      "Your interview results have been sent to the hiring team at TechCorp. You should expect to hear back within 5-7 business days regarding next steps in the process.",
+  useEffect(() => {
+    const fetchInterviewData = async () => {
+      try {
+        // Get the interview ID from localStorage
+        const interviewId = localStorage.getItem('interview_id')
+        
+        if (!interviewId) {
+          // If no interview ID is found, try to fetch the most recent interview for the user
+          if (user && user.id) {
+            const token = localStorage.getItem('karzo_token')
+            const recentResponse = await fetch(`http://localhost:8000/api/interviews/candidates/${user.id}?limit=1`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (recentResponse.ok) {
+              const recentInterviews = await recentResponse.json()
+              
+              if (recentInterviews && recentInterviews.length > 0) {
+                // Use the most recent interview
+                const mostRecentInterview = recentInterviews[0]
+                
+                // Fetch job details if needed
+                let jobTitle = mostRecentInterview.job_title
+                let company = mostRecentInterview.company
+                
+                if (!jobTitle || !company) {
+                  try {
+                    const token = localStorage.getItem('karzo_token')
+                    const jobResponse = await fetch(`http://localhost:8000/api/jobs/${mostRecentInterview.job_id}`, {
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                      }
+                    })
+                    if (jobResponse.ok) {
+                      const jobData = await jobResponse.json()
+                      jobTitle = jobData.title
+                      company = jobData.company
+                    }
+                  } catch (jobError) {
+                    console.error('Error fetching job details:', jobError)
+                  }
+                }
+                
+                // Parse strengths and improvements if they're stored as JSON strings
+                let strengths = []
+                let improvements = []
+                
+                try {
+                  if (mostRecentInterview.strengths && typeof mostRecentInterview.strengths === 'string') {
+                    strengths = JSON.parse(mostRecentInterview.strengths)
+                  } else if (Array.isArray(mostRecentInterview.strengths)) {
+                    strengths = mostRecentInterview.strengths
+                  }
+                  
+                  if (mostRecentInterview.improvements && typeof mostRecentInterview.improvements === 'string') {
+                    improvements = JSON.parse(mostRecentInterview.improvements)
+                  } else if (Array.isArray(mostRecentInterview.improvements)) {
+                    improvements = mostRecentInterview.improvements
+                  }
+                } catch (parseError) {
+                  console.error('Error parsing strengths/improvements:', parseError)
+                }
+                
+                // If no strengths/improvements are available, provide defaults
+                if (strengths.length === 0) {
+                  strengths = [
+                    "Technical knowledge",
+                    "Communication skills",
+                    "Problem-solving approach"
+                  ]
+                }
+                
+                if (improvements.length === 0) {
+                  improvements = [
+                    "Provide more specific examples",
+                    "Articulate career goals more clearly"
+                  ]
+                }
+                
+                setInterviewResults({
+                  score: mostRecentInterview.score || 0,
+                  duration: mostRecentInterview.duration || "N/A",
+                  jobTitle: jobTitle || "N/A",
+                  company: company || "N/A",
+                  feedback: mostRecentInterview.feedback || "No feedback available yet.",
+                  strengths: strengths,
+                  improvements: improvements,
+                  nextSteps: "Your interview results have been recorded. You may be contacted for next steps in the hiring process.",
+                });
+                setLoading(false);
+                return;
+              }
+            }
+            
+            // If no recent interviews found, redirect to dashboard
+            router.push('/dashboard');
+            return;
+          }
+        }
+        
+        // Fetch the interview data from the API
+        const token = localStorage.getItem('karzo_token')
+        const response = await fetch(`http://localhost:8000/api/interviews/${interviewId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch interview data')
+        }
+        
+        const data = await response.json()
+        
+        // Fetch job details if needed
+        let jobTitle = data.job_title
+        let company = data.company
+        
+        if (!jobTitle || !company) {
+          try {
+            const token = localStorage.getItem('karzo_token')
+            const jobResponse = await fetch(`http://localhost:8000/api/jobs/${data.job_id}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            if (jobResponse.ok) {
+              const jobData = await jobResponse.json()
+              jobTitle = jobData.title
+              company = jobData.company
+            }
+          } catch (jobError) {
+            console.error('Error fetching job details:', jobError)
+          }
+        }
+        
+        // Parse strengths and improvements if they're stored as JSON strings
+        let strengths = []
+        let improvements = []
+        
+        try {
+          if (data.strengths && typeof data.strengths === 'string') {
+            strengths = JSON.parse(data.strengths)
+          } else if (Array.isArray(data.strengths)) {
+            strengths = data.strengths
+          }
+          
+          if (data.improvements && typeof data.improvements === 'string') {
+            improvements = JSON.parse(data.improvements)
+          } else if (Array.isArray(data.improvements)) {
+            improvements = data.improvements
+          }
+        } catch (parseError) {
+          console.error('Error parsing strengths/improvements:', parseError)
+        }
+        
+        // If no strengths/improvements are available, provide defaults
+        if (strengths.length === 0) {
+          strengths = [
+            "Technical knowledge",
+            "Communication skills",
+            "Problem-solving approach"
+          ]
+        }
+        
+        if (improvements.length === 0) {
+          improvements = [
+            "Provide more specific examples",
+            "Articulate career goals more clearly"
+          ]
+        }
+        
+        // Transform the data to match the expected format
+        setInterviewResults({
+          score: data.score || 0,
+          duration: data.duration || "N/A",
+          jobTitle: jobTitle || "N/A",
+          company: company || "N/A",
+          feedback: data.feedback || "No feedback available yet.",
+          strengths: strengths,
+          improvements: improvements,
+          nextSteps: "Your interview results have been recorded. You may be contacted for next steps in the hiring process.",
+        })
+        
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching interview data:', error)
+        setError(error instanceof Error ? error.message : 'An unknown error occurred')
+        setLoading(false)
+      }
+    }
+    
+    fetchInterviewData()
+  }, [user, router])
+
+  if (loading) {
+    return (
+      <AuthProvider>
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1 container py-8">
+            <div className="max-w-3xl mx-auto text-center">
+              <p>Loading interview results...</p>
+            </div>
+          </main>
+        </div>
+      </AuthProvider>
+    )
+  }
+
+  if (error) {
+    return (
+      <AuthProvider>
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1 container py-8">
+            <div className="max-w-3xl mx-auto text-center">
+              <p className="text-red-500">Error: {error}</p>
+              <Button onClick={() => router.push('/dashboard')} className="mt-4">
+                Return to Dashboard
+              </Button>
+            </div>
+          </main>
+        </div>
+      </AuthProvider>
+    )
+  }
+
+  if (!interviewResults) {
+    return (
+      <AuthProvider>
+        <div className="flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1 container py-8">
+            <div className="max-w-3xl mx-auto text-center">
+              <p>No interview results available</p>
+              <Button onClick={() => router.push('/dashboard')} className="mt-4">
+                Return to Dashboard
+              </Button>
+            </div>
+          </main>
+        </div>
+      </AuthProvider>
+    )
   }
 
   return (
@@ -96,7 +341,7 @@ export default function ReviewPage() {
                     <div>
                       <h3 className="text-lg font-medium mb-2">Strengths</h3>
                       <ul className="space-y-1">
-                        {interviewResults.strengths.map((strength, index) => (
+                        {interviewResults.strengths.map((strength: string, index: number) => (
                           <li key={index} className="text-sm flex items-start">
                             <CheckCircle className="h-4 w-4 text-green-500 mr-2 mt-0.5 shrink-0" />
                             <span>{strength}</span>
@@ -107,7 +352,7 @@ export default function ReviewPage() {
                     <div>
                       <h3 className="text-lg font-medium mb-2">Areas for Improvement</h3>
                       <ul className="space-y-1">
-                        {interviewResults.improvements.map((improvement, index) => (
+                        {interviewResults.improvements.map((improvement: string, index: number) => (
                           <li key={index} className="text-sm flex items-start">
                             <span className="h-4 w-4 rounded-full bg-muted-foreground mr-2 mt-0.5 shrink-0" />
                             <span>{improvement}</span>

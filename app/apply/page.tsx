@@ -29,6 +29,7 @@ export default function ApplyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
   const [loadingJobs, setLoadingJobs] = useState(true)
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null) // Add state for resume URL
 
   useEffect(() => {
     // Fetch real jobs from the API
@@ -47,25 +48,30 @@ export default function ApplyPage() {
     getJobs()
 
     // Pre-fill job from query parameter
-    const jobId = searchParams.get("job")
-    if (jobId) {
-      setSelectedJob(jobId)
+    if (searchParams) {
+      const jobId = searchParams.get("job")
+      if (jobId) {
+        setSelectedJob(jobId)
+      }
     }
 
     // Pre-fill user information if logged in
     if (user) {
+      console.log("User data:", JSON.stringify(user)) // More detailed logging
       setName(user.full_name || "")
-      setEmail(user.email)
-      setPhone(user.phone || "")  // Already correctly using phone
+      setEmail(user.email || "")
       
-      // Add state for resume URL
+      // Check different possible properties for phone
+      if (user.phone) {
+        setPhone(user.phone)
+        console.log("Setting phone from user.phone:", user.phone)
+      } 
+      
+      // Set resume URL to state
       if (user.resume_url) {
-        // Set some indication that resume is already uploaded
-        const resumeInfo = document.getElementById('resume-info');
-        if (resumeInfo) {
-          resumeInfo.textContent = `Current resume: ${user.resume_url.split('/').pop()}`;
-        }
-      }
+        setResumeUrl(user.resume_url)
+        console.log("Setting resume URL to:", user.resume_url)
+      } 
     }
   }, [user, searchParams])
 
@@ -81,6 +87,25 @@ export default function ApplyPage() {
     setIsSubmitting(true);
   
     try {
+      // Find the selected job to store its details
+      const jobDetails = jobs.find(job => job.id.toString() === selectedJob);
+      
+      if (jobDetails) {
+        // Store job information in localStorage for the interview flow
+        localStorage.setItem('interview_job_id', selectedJob);
+        localStorage.setItem('interview_job_title', jobDetails.title);
+        localStorage.setItem('interview_company', jobDetails.company);
+        
+        // Also store requirements if needed for the interview
+        if (jobDetails.requirements) {
+          localStorage.setItem('interview_job_requirements', 
+            Array.isArray(jobDetails.requirements) 
+              ? JSON.stringify(jobDetails.requirements) 
+              : jobDetails.requirements
+          );
+        }
+      }
+
       // Get the resume file
       const resumeInput = document.getElementById('resume') as HTMLInputElement;
       const resumeFile = resumeInput.files?.[0];
@@ -178,9 +203,9 @@ export default function ApplyPage() {
                     <Label htmlFor="resume">Resume</Label>
                     <Input id="resume" type="file" />
                     <p className="text-sm text-muted-foreground">Upload your resume (PDF, DOC, or DOCX)</p>
-                    {user?.resume_url && (
+                    {resumeUrl && (
                       <p id="resume-info" className="text-sm text-green-600">
-                        Current resume: {user.resume_url.split('/').pop()}
+                        Current resume: {resumeUrl.split('/').pop()}
                       </p>
                     )}
                   </div>
