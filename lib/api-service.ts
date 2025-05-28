@@ -293,3 +293,87 @@ export async function fetchAllInterviews(): Promise<Interview[]> {
     throw new Error('Failed to fetch interviews');
   }
 }
+
+/**
+ * Interface for Report objects returned from the API
+ */
+export interface Report {
+  id: number;
+  interview_id: number;
+  candidate_id: number;
+  score: number;
+  duration: string;
+  feedback: string;
+  strengths: string[];
+  improvements: string[];
+  created_at: string;
+}
+
+/**
+ * Interface for creating a new Report
+ */
+export interface ReportCreate {
+  interview_id: number;
+  candidate_id: number;
+  score?: number;
+  duration?: string;
+  feedback?: string;
+  strengths?: string[];
+  improvements?: string[];
+}
+
+/**
+ * Fetch a report for a specific interview
+ * @param interviewId - The ID of the interview to fetch the report for
+ * @returns The report details
+ */
+export async function fetchInterviewReport(interviewId: number): Promise<Report> {
+  try {
+    const url = `${API_URL}/api/reports/interviews/${interviewId}`;
+    console.log(`Fetching report for interview with ID ${interviewId}`);
+    
+    const report = await apiRequest<Report>(url);
+    return report;
+  } catch (error) {
+    console.error('Error fetching interview report:', error);
+    throw new Error('Failed to fetch interview report');
+  }
+}
+
+/**
+ * Fetch all reports for a specific candidate
+ * @param candidateId - The ID of the candidate to fetch reports for
+ * @returns List of reports for the candidate
+ */
+export async function fetchCandidateReports(candidateId: number): Promise<Report[]> {
+  try {
+    const url = `${API_URL}/api/reports/candidates/${candidateId}`;
+    console.log(`Fetching reports for candidate with ID ${candidateId}`);
+    
+    const reports = await apiRequest<Report[]>(url);
+    console.log(`Successfully fetched ${reports.length} reports for candidate ${candidateId}`);
+    return reports;
+  } catch (error) {
+    console.error('Error fetching candidate reports:', error);
+    throw new Error('Failed to fetch candidate reports');
+  }
+}
+
+/**
+ * Create a new report
+ * @param report - The report data to create
+ * @returns The created report
+ */
+export async function createReport(report: ReportCreate): Promise<Report> {
+  try {
+    const url = `${API_URL}/api/reports/`;
+    console.log(`Creating report for interview ${report.interview_id}`);
+    
+    const createdReport = await apiRequest<Report>(url, 'POST', report);
+    console.log('Successfully created report:', createdReport.id);
+    return createdReport;
+  } catch (error) {
+    console.error('Error creating report:', error);
+    throw new Error('Failed to create report');
+  }
+}

@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { AuthProvider } from "@/lib/auth-context"
 import { CheckCircle, Download, Star } from "lucide-react"
 import { useEffect, useState } from 'react'
+import { createReport, fetchInterviewReport, ReportCreate } from "@/lib/api-service"
 
 // Define interface for interview results
 interface InterviewResults {
@@ -35,6 +36,30 @@ export default function ReviewPage() {
       try {
         // Get the interview ID from localStorage
         const interviewId = localStorage.getItem('interview_id')
+        
+        // Check if we already have a report for this interview
+        if (interviewId) {
+          try {
+            const existingReport = await fetchInterviewReport(parseInt(interviewId))
+            if (existingReport) {
+              setInterviewResults({
+                score: existingReport.score || 0,
+                duration: existingReport.duration || "N/A",
+                jobTitle: localStorage.getItem('job_title') || "N/A",
+                company: localStorage.getItem('company') || "N/A",
+                feedback: existingReport.feedback || "No feedback available yet.",
+                strengths: existingReport.strengths || [],
+                improvements: existingReport.improvements || [],
+                nextSteps: "Your interview results have been recorded. You may be contacted for next steps in the hiring process.",
+              })
+              setLoading(false)
+              return
+            }
+          } catch (error) {
+            // Report doesn't exist yet, continue with normal flow
+            console.log('No existing report found, will create one')
+          }
+        }
         
         if (!interviewId) {
           // If no interview ID is found, try to fetch the most recent interview for the user
@@ -113,7 +138,7 @@ export default function ReviewPage() {
                   ]
                 }
                 
-                setInterviewResults({
+                const resultsData = {
                   score: mostRecentInterview.score || 0,
                   duration: mostRecentInterview.duration || "N/A",
                   jobTitle: jobTitle || "N/A",
@@ -122,7 +147,28 @@ export default function ReviewPage() {
                   strengths: strengths,
                   improvements: improvements,
                   nextSteps: "Your interview results have been recorded. You may be contacted for next steps in the hiring process.",
-                });
+                };
+                
+                setInterviewResults(resultsData);
+                
+                // Create a report for this interview
+                try {
+                  const reportData: ReportCreate = {
+                    interview_id: mostRecentInterview.id,
+                    candidate_id: user?.id ? (typeof user.id === 'string' ? parseInt(user.id) : user.id) : 0, // Convert string ID to number
+                    score: typeof resultsData.score === 'string' ? parseInt(resultsData.score) : resultsData.score, // Ensure number
+                    duration: resultsData.duration,
+                    feedback: resultsData.feedback,
+                    strengths: resultsData.strengths,
+                    improvements: resultsData.improvements
+                  };
+                  
+                  await createReport(reportData);
+                  console.log('Successfully created report for interview', mostRecentInterview.id);
+                } catch (reportError) {
+                  console.error('Error creating report:', reportError);
+                }
+                
                 setLoading(false);
                 return;
               }
@@ -208,8 +254,7 @@ export default function ReviewPage() {
           ]
         }
         
-        // Transform the data to match the expected format
-        setInterviewResults({
+        const resultsData = {
           score: data.score || 0,
           duration: data.duration || "N/A",
           jobTitle: jobTitle || "N/A",
@@ -218,7 +263,36 @@ export default function ReviewPage() {
           strengths: strengths,
           improvements: improvements,
           nextSteps: "Your interview results have been recorded. You may be contacted for next steps in the hiring process.",
-        })
+        };
+        
+        // Transform the data to match the expected format
+        setInterviewResults(resultsData);
+        
+        // Store job title and company in localStorage for future reference
+        if (jobTitle) localStorage.setItem('job_title', jobTitle);
+        if (company) localStorage.setItem('company', company);
+        
+        // Create a report for this interview
+        try {
+          if (!interviewId || !user) {
+            throw new Error('Missing interview ID or user');
+          }
+          
+          const reportData: ReportCreate = {
+            interview_id: parseInt(interviewId),
+            candidate_id: typeof user.id === 'string' ? parseInt(user.id) : user.id, // Convert string ID to number
+            score: typeof resultsData.score === 'string' ? parseInt(resultsData.score) : resultsData.score, // Ensure number
+            duration: resultsData.duration,
+            feedback: resultsData.feedback,
+            strengths: resultsData.strengths,
+            improvements: resultsData.improvements
+          };
+          
+          await createReport(reportData);
+          console.log('Successfully created report for interview', interviewId);
+        } catch (reportError) {
+          console.error('Error creating report:', reportError);
+        }
         
         setLoading(false)
       } catch (error) {
