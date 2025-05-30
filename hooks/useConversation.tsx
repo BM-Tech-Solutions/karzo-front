@@ -2,14 +2,12 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Conversation as ElevenLabsConversation } from "@11labs/client";
 
-// Mock the ElevenLabs Conversation class for our frontend
-interface Conversation {
-  getId: () => string;
+// Our simplified interface for the conversation
+interface ConversationInfo {
+  conversationId: string;
   endSession: () => Promise<void>;
-  connection: {
-    conversationId: string;
-  };
 }
 
 interface FormData {
@@ -38,7 +36,7 @@ export const useConversation = () => {
     translations.connectionStatus.ready
   );
   const [isConnected, setIsConnected] = useState(false);
-  const conversationRef = useRef<Conversation | null>(null);
+  const conversationRef = useRef<ElevenLabsConversation | null>(null);
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -73,34 +71,80 @@ export const useConversation = () => {
         throw new Error("Microphone access is required for the interview");
       }
 
-      // Create mock conversation object
-      const mockConversation: Conversation = {
-        getId: () => "mock-conversation-id",
-        endSession: async () => {
-          return Promise.resolve();
-        },
-        connection: {
-          conversationId: "mock-conversation-id",
-        },
-      };
+      // Get agentId from environment variable with fallback
+      const agentId = process.env.NEXT_PUBLIC_AGENT_ID || "j6u20kkiKF2sSwOEpZoS";
+      
+      // Get API key using the same method as in fetchTranscript
+      let apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || 
+                  window.process?.env?.NEXT_PUBLIC_ELEVENLABS_API_KEY || 
+                  "";
+                  
+      // If still not found, try to get it directly from localStorage as a fallback
+      if (!apiKey) {
+        apiKey = localStorage.getItem('ELEVENLABS_API_KEY') || "";
+      }
+      
+      // Hard-code the API key as a last resort (only for debugging)
+      if (!apiKey) {
+        apiKey = "sk_7285d9e3401a8364817514d44289c9acad85e3ddeb1e0887";
+        console.log("Using hardcoded API key for starting conversation");
+      }
+      
+      // Store the API key in localStorage for future use
+      if (apiKey) {
+        localStorage.setItem('ELEVENLABS_API_KEY', apiKey);
+      }
+      
+      console.log(`Starting conversation with agent ID: ${agentId}`);
+      console.log(`Using API key: ${apiKey ? apiKey.substring(0, 5) + '...' + apiKey.substring(apiKey.length - 3) : 'none'}`); 
 
-      conversationRef.current = mockConversation;
-      const conversationId = "mock-conversation-id";
+      // Use the actual ElevenLabs Conversation API
+      // The API key must be set as a global environment variable for the client
+      // This is the correct way to set the API key for the ElevenLabs client
+      if (typeof window !== 'undefined') {
+        // @ts-ignore - Setting global variable for ElevenLabs client
+        window.ELEVENLABS_API_KEY = apiKey;
+      }
+      
+      // Now start the conversation session
+      const conversation = await ElevenLabsConversation.startSession({
+        agentId: agentId,
+        dynamicVariables: {
+          job_offer: formData.jobOffer,
+          user_name: formData.fullName
+        },
+        onConnect: () => {
+          setConnectionStatus(translations.connectionStatus.connected);
+          setIsConnected(true);
+        },
+        onDisconnect: () => {
+          setConnectionStatus(translations.connectionStatus.ready);
+          setIsConnected(false);
+          if (sessionInfo) {
+            console.log('Session ended:', sessionInfo);
+          }
+        },
+        onError: (message) => {
+          console.error('Error:', message);
+          setConnectionStatus(`${translations.connectionStatus.error}: ${message}`);
+          setIsConnected(false);
+          setError(`Connection error: ${message}`);
+        }
+      });
 
-      // Simulate a connection delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      conversationRef.current = conversation;
+      
+      // Get the conversation ID using the public method
+      const conversationId = conversation.getId();
 
       setSessionInfo({
         conversationId,
-        agentId: process.env.NEXT_PUBLIC_AGENT_ID || "",
+        agentId: agentId
       });
-
-      setConnectionStatus(translations.connectionStatus.connected);
-      setIsConnected(true);
 
       console.log("Session started:", {
         conversationId,
-        agentId: process.env.NEXT_PUBLIC_AGENT_ID,
+        agentId: agentId
       });
     } catch (error) {
       console.error("Failed to start conversation:", error);
@@ -115,23 +159,78 @@ export const useConversation = () => {
 
   const fetchTranscript = async (conversationId: string) => {
     try {
+      console.log(`Fetching transcript for conversation: ${conversationId}`);
+      
+      // Check if the API key exists and log a masked version for debugging
+      // Try multiple ways to access the environment variable
+      let apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || 
+                  window.process?.env?.NEXT_PUBLIC_ELEVENLABS_API_KEY || 
+                  "";
+                  
+      // If still not found, try to get it directly from localStorage as a fallback
+      if (!apiKey) {
+        apiKey = localStorage.getItem('ELEVENLABS_API_KEY') || "";
+      }
+      
+      // Hard-code the API key as a last resort (only for debugging)
+      if (!apiKey) {
+        apiKey = "sk_7285d9e3401a8364817514d44289c9acad85e3ddeb1e0887";
+        console.log("Using hardcoded API key for testing");
+      }
+      
+      if (!apiKey) {
+        console.error("No ElevenLabs API key found in any source");
+        return null;
+      }
+      
+      console.log(`Using API key: ${apiKey.substring(0, 5)}...${apiKey.substring(apiKey.length - 3)}`);
+      
+      // Make a direct API call to ElevenLabs with detailed logging
+      console.log(`Making API request to: https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`);
+      
+      // Use the exact same format as the successful playground request
       const response = await fetch(
         `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,
         {
           method: "GET",
           headers: {
-            "xi-api-key": process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || "",
-            "Content-Type": "application/json",
+            "Xi-Api-Key": apiKey, // Note the capitalization change from "xi-api-key" to "Xi-Api-Key"
           },
         }
       );
 
+      // Log the response status and headers for debugging
+      console.log(`API response status: ${response.status} ${response.statusText}`);
+      console.log('Response headers:', Object.fromEntries([...response.headers.entries()]));
+      
       if (!response.ok) {
-        throw new Error(`Failed to fetch transcript: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`ElevenLabs API error (${response.status}): ${errorText}`);
+        
+        // For 401 errors, provide more specific guidance
+        if (response.status === 401) {
+          console.error("Authentication failed. Please check that your ElevenLabs API key is valid and has the necessary permissions.");
+          // Continue execution to handle the error gracefully
+        } else {
+          throw new Error(`Failed to fetch transcript: ${response.status} ${response.statusText}`);
+        }
+        
+        // Return null for unauthorized errors instead of throwing
+        return null;
       }
 
+      // Parse and log the response data
       const data = await response.json();
-      return data.transcript;
+      console.log('ElevenLabs API response data:', JSON.stringify(data, null, 2));
+      
+      // The transcript is directly in the data.transcript field based on the playground response
+      if (data.transcript) {
+        console.log('Found transcript in response.transcript');
+        return data.transcript;
+      } else {
+        console.warn('No transcript found in API response');
+        return null;
+      }
     } catch (err) {
       console.error("Error fetching transcript:", err);
       return null;
@@ -142,13 +241,15 @@ export const useConversation = () => {
     if (conversationRef.current) {
       await conversationRef.current.endSession();
 
-      const finalConversationId =
-        conversationRef.current.getId() ||
-        conversationRef.current.connection.conversationId;
+      // Get the conversation ID using the public method
+      const finalConversationId = conversationRef.current.getId();
+
+      // Get agentId from environment variable with fallback
+      const agentId = process.env.NEXT_PUBLIC_AGENT_ID || "j6u20kkiKF2sSwOEpZoS";
 
       const finalSessionInfo = {
         conversationId: finalConversationId,
-        agentId: process.env.NEXT_PUBLIC_AGENT_ID || "aun2qU5FKmQiucBVTNFR",
+        agentId: agentId
       };
 
       console.log("Session ended:", finalSessionInfo);

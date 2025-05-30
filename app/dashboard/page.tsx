@@ -268,6 +268,7 @@ export default function DashboardPage() {
                               <TableHead>Candidate Name</TableHead>
                               <TableHead>Job Title</TableHead>
                               <TableHead>Date</TableHead>
+                              <TableHead>Status</TableHead>
                               <TableHead className="text-right">Action</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -279,6 +280,17 @@ export default function DashboardPage() {
                                 <TableCell>{user?.full_name || "Candidate"}</TableCell>
                                 <TableCell>{report.job_title || "N/A"}</TableCell>
                                 <TableCell>{format(new Date(report.created_at), "MMM d, yyyy")}</TableCell>
+                                <TableCell>
+                                  {report.status === "processing" ? (
+                                    <div className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                      Processing
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-green-100 text-green-800">
+                                      Complete
+                                    </div>
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-right">
                                   <Dialog>
                                     <DialogTrigger asChild>
@@ -286,8 +298,9 @@ export default function DashboardPage() {
                                         variant="outline" 
                                         size="sm"
                                         onClick={() => setSelectedReport(report)}
+                                        disabled={report.status === "processing"}
                                       >
-                                        View
+                                        {report.status === "processing" ? "Processing..." : "View"}                                      
                                       </Button>
                                     </DialogTrigger>
                                     {/* Dialog content remains the same */}

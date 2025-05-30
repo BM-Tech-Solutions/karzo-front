@@ -88,6 +88,9 @@ export default function PreparePage() {
   }
 
   const handleJoinInterview = () => {
+    // Clear any existing interview data from localStorage to ensure a fresh start
+    localStorage.removeItem('interview_id')
+    
     router.push("/interview/room")
   }
 

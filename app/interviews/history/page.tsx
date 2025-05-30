@@ -130,8 +130,13 @@ export default function InterviewHistoryPage() {
                               <Button variant="outline" size="sm" asChild>
                                 <Link href="/interview/prepare">Prepare</Link>
                               </Button>
-                              <Button size="sm" asChild>
-                                <Link href="/interview/room">Join</Link>
+                              <Button size="sm" onClick={() => {
+                                // Clear any existing interview data from localStorage
+                                localStorage.removeItem('interview_id');
+                                // Navigate to the interview room
+                                router.push('/interview/room');
+                              }}>
+                                Join
                               </Button>
                             </div>
                           ) : interview.status === "completed" ? (

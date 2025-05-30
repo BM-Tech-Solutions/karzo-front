@@ -127,6 +127,9 @@ export default function ApplyPage() {
         });
       }
       
+      // Clear any existing interview data from localStorage to ensure a fresh start
+      localStorage.removeItem('interview_id');
+      
       // Redirect to interview page
       router.push("/interview/room");
     } catch (error) {

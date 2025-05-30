@@ -295,6 +295,69 @@ export async function fetchAllInterviews(): Promise<Interview[]> {
 }
 
 /**
+ * Delete an interview by ID
+ * @param id - The ID of the interview to delete
+ * @returns The deleted interview
+ */
+export const deleteInterview = async (id: number): Promise<void> => {
+  try {
+    console.log(`Deleting interview with ID ${id}`);
+    
+    // First, try to delete any associated report
+    try {
+      // Check if a report exists for this interview
+      const reportUrl = `${API_URL}/api/reports/interviews/${id}`;
+      const token = typeof window !== 'undefined' ? localStorage.getItem('karzo_token') : '';
+      
+      // Try to fetch the report to see if it exists
+      const reportCheckResponse = await fetch(reportUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      // If report exists, delete it first
+      if (reportCheckResponse.ok) {
+        console.log(`Found report for interview ${id}, deleting it first`);
+        await deleteReport(id);
+      }
+    } catch (reportError) {
+      console.log(`No report found for interview ${id} or error checking:`, reportError);
+      // Continue with interview deletion even if report check/deletion fails
+    }
+    
+    // Now delete the interview
+    const url = `${API_URL}/api/interviews/${id}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('karzo_token') : ''}`
+      }
+    });
+    
+    if (!response.ok) {
+      let errorMessage = `Failed to delete interview: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorMessage;
+      } catch (e) {
+        // If we can't parse JSON, use text
+        const errorText = await response.text();
+        if (errorText) errorMessage += ` - ${errorText}`;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    console.log('Successfully deleted interview:', id);
+  } catch (error) {
+    console.error('Error in deleteInterview:', error);
+    throw error; // Re-throw the error to be handled by the caller
+  }
+};
+
+/**
  * Interface for Report objects returned from the API
  */
 export interface Report {
@@ -307,6 +370,10 @@ export interface Report {
   strengths: string[];
   improvements: string[];
   created_at: string;
+  status: string;
+  conversation_id?: string;
+  transcript?: any[];
+  transcript_summary?: string;
 }
 
 /**
@@ -320,23 +387,49 @@ export interface ReportCreate {
   feedback?: string;
   strengths?: string[];
   improvements?: string[];
+  status?: string;
+  conversation_id?: string;
+  transcript?: any[];
+  transcript_summary?: string;
 }
 
 /**
  * Fetch a report for a specific interview
  * @param interviewId - The ID of the interview to fetch the report for
- * @returns The report details
+ * @returns The report details or null if no report exists
  */
-export async function fetchInterviewReport(interviewId: number): Promise<Report> {
+export async function fetchInterviewReport(interviewId: number): Promise<Report | null> {
   try {
     const url = `${API_URL}/api/reports/interviews/${interviewId}`;
-    console.log(`Fetching report for interview with ID ${interviewId}`);
     
-    const report = await apiRequest<Report>(url);
+    // Use fetch directly to handle 404 responses gracefully
+    const token = typeof window !== 'undefined' ? localStorage.getItem('karzo_token') : null;
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+    
+    // If report doesn't exist (404), return null instead of throwing an error
+    if (response.status === 404) {
+      return null;
+    }
+    
+    // For other error statuses, throw an error
+    if (!response.ok) {
+      throw new Error(`Failed to fetch report: ${response.status}`);
+    }
+    
+    // Parse and return the report
+    const report = await response.json();
     return report;
-  } catch (error) {
-    console.error('Error fetching interview report:', error);
-    throw new Error('Failed to fetch interview report');
+  } catch (error: unknown) {
+    // Only log errors that aren't 404s (which we already handled)
+    if (error instanceof Error && error.message !== 'Failed to fetch report: 404') {
+      console.error('Error fetching interview report:', error);
+    }
+    throw error;
   }
 }
 
@@ -375,5 +468,183 @@ export async function createReport(report: ReportCreate): Promise<Report> {
   } catch (error) {
     console.error('Error creating report:', error);
     throw new Error('Failed to create report');
+  }
+}
+
+/**
+ * Fetch all reports (admin only)
+ * @returns List of all reports
+ */
+export async function fetchAllReports(): Promise<Report[]> {
+  try {
+    // Get all completed interviews first
+    const interviews = await fetchAllInterviews();
+    const completedInterviews = interviews.filter(interview => interview.status === 'completed');
+    console.log(`Found ${completedInterviews.length} completed interviews`);
+    
+    // For each completed interview, try to get its report
+    const reports: Report[] = [];
+    
+    for (const interview of completedInterviews) {
+      try {
+        const url = `${API_URL}/api/reports/interviews/${interview.id}`;
+        const report = await apiRequest<Report>(url);
+        reports.push(report);
+      } catch (err) {
+        // If no report exists for this interview, just skip it
+        console.log(`No report found for interview ${interview.id}`);
+      }
+    }
+    
+    console.log(`Successfully fetched ${reports.length} reports`);
+    return reports;
+  } catch (error) {
+    console.error('Error fetching all reports:', error);
+    throw new Error('Failed to fetch all reports');
+  }
+}
+
+/**
+ * Delete a report by ID
+ * @param id - The ID of the report to delete
+ * @returns void
+ */
+export async function deleteReport(id: number): Promise<void> {
+  try {
+    const token = localStorage.getItem('karzo_token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await fetch(`http://localhost:8000/api/reports/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to delete report');
+    }
+    
+    console.log('Successfully deleted report:', id);
+  } catch (error) {
+    console.error('Error in deleteReport:', error);
+    throw error; // Re-throw the error to be handled by the caller
+  }
+}
+
+/**
+ * Delete a candidate by ID
+ * @param id - The ID of the candidate to delete
+ * @returns void
+ */
+export async function deleteCandidate(id: number): Promise<void> {
+  try {
+    const url = `${API_URL}/api/candidates/${id}`;
+    console.log(`Deleting candidate with ID ${id}`);
+    
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('karzo_token') : ''}`
+      }
+    });
+    
+    if (!response.ok) {
+      let errorMessage = `Failed to delete candidate: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorMessage;
+      } catch (e) {
+        // If we can't parse JSON, use text
+        const errorText = await response.text();
+        if (errorText) errorMessage += ` - ${errorText}`;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    console.log('Successfully deleted candidate:', id);
+  } catch (error) {
+    console.error('Error in deleteCandidate:', error);
+    throw error; // Re-throw the error to be handled by the caller
+  }
+}
+
+/**
+ * Generate a report from an ElevenLabs transcript
+ * @param reportId - The ID of the report to generate
+ * @param conversationId - The ElevenLabs conversation ID
+ * @returns The response message
+ */
+export async function generateReportFromTranscript(reportId: number, conversationId: string): Promise<{message: string, report_id: number}> {
+  try {
+    const token = localStorage.getItem('karzo_token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    // Get the ElevenLabs API key from localStorage or environment
+    const elevenlabsApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || 
+                            localStorage.getItem('ELEVENLABS_API_KEY') || 
+                            "sk_7285d9e3401a8364817514d44289c9acad85e3ddeb1e0887";
+
+    const response = await fetch(`http://localhost:8000/api/transcript/generate-report`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        report_id: reportId,
+        conversation_id: conversationId,
+        elevenlabs_api_key: elevenlabsApiKey
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to generate report from transcript');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error generating report from transcript:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check the status of a report
+ * @param reportId - The ID of the report to check
+ * @returns The report status
+ */
+export async function checkReportStatus(reportId: number): Promise<{status: string}> {
+  try {
+    const token = localStorage.getItem('karzo_token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const response = await fetch(`http://localhost:8000/api/transcript/check-report-status/${reportId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to check report status');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error checking report status:', error);
+    throw error;
   }
 }

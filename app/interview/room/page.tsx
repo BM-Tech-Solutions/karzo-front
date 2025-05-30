@@ -70,8 +70,12 @@ export default function InterviewRoomPage() {
   const [company, setCompany] = useState<string | null>(null)
   const [jobRequirements, setJobRequirements] = useState<string[]>([])
   
-  // Add this useEffect to load job data from localStorage
+  // Add this useEffect to load job data from localStorage and clear any existing interview data
   useEffect(() => {
+    // Clear any existing interview ID to ensure we start fresh
+    // This prevents issues with creating reports for the wrong interview
+    localStorage.removeItem('interview_id')
+    
     const storedJobId = localStorage.getItem('interview_job_id')
     const storedJobTitle = localStorage.getItem('interview_job_title')
     const storedCompany = localStorage.getItem('interview_company')
@@ -162,19 +166,35 @@ export default function InterviewRoomPage() {
       // Get the authentication token from localStorage
       const token = localStorage.getItem('karzo_token')
       
+      // First, clear any existing interview ID to avoid conflicts
+      localStorage.removeItem('interview_id')
+      console.log('Cleared existing interview_id from localStorage')
+      
+      // Log user and job information
+      console.log('Creating interview with:', {
+        userId: user.id,
+        userName: user.full_name,
+        userRole: user.role,
+        jobId: jobId
+      })
+      
+      const interviewData = {
+        candidate_id: user.id,
+        job_id: parseInt(jobId),
+        date: new Date().toISOString(),
+        status: 'completed',
+        // You can add score and feedback later if available
+      }
+      
+      console.log('Interview request data:', JSON.stringify(interviewData, null, 2))
+      
       const response = await fetch('http://localhost:8000/api/interviews/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          candidate_id: user.id,
-          job_id: parseInt(jobId),
-          date: new Date().toISOString(),
-          status: 'completed',
-          // You can add score and feedback later if available
-        }),
+        body: JSON.stringify(interviewData),
       })
       
       if (!response.ok) {
@@ -183,6 +203,7 @@ export default function InterviewRoomPage() {
       
       // Get the interview ID from the response
       const data = await response.json()
+      console.log('Created new interview with ID:', data.id)
       
       // Store interview ID for the review page
       localStorage.setItem('interview_id', data.id.toString())
