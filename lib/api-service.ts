@@ -50,7 +50,9 @@ export interface InterviewCreate {
 }
 
 // Base API URL
-const API_URL = 'http://localhost:8000';
+import { API_BASE_URL } from './config';
+
+const API_URL = API_BASE_URL;
 
 /**
  * Utility function to make API requests with proper error handling

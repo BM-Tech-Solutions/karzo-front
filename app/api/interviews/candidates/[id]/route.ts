@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { API_BASE_URL } from '@/lib/config';
 
 export async function GET(
   request: Request,
@@ -10,7 +11,7 @@ export async function GET(
     const limit = searchParams.get('limit');
     
     // Build the URL with query parameters if present
-    let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/interviews/candidates/${id}`;
+    let url = `${API_BASE_URL}/api/interviews/candidates/${id}`;
     if (limit) {
       url += `?limit=${limit}`;
     }

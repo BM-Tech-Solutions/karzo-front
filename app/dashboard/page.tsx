@@ -303,60 +303,73 @@ export default function DashboardPage() {
                                         {report.status === "processing" ? "Processing..." : "View"}                                      
                                       </Button>
                                     </DialogTrigger>
-                                    {/* Dialog content remains the same */}
-                                    <DialogContent className="sm:max-w-md">
+                                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                                       <DialogHeader>
-                                        <DialogTitle className="flex items-center justify-between">
-                                          <span>Report Details</span>
-                                          <DialogClose className="rounded-full hover:bg-muted p-1">
-                                            <X className="h-4 w-4" />
-                                          </DialogClose>
-                                        </DialogTitle>
+                                        <DialogTitle>Interview Report</DialogTitle>
                                         <DialogDescription>
-                                          Interview Report #{report.id}
+                                          <div className="space-y-4 mt-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                              <div>
+                                                <h3 className="font-medium text-sm">Candidate</h3>
+                                                <p>{user?.full_name || "Unknown"}</p>
+                                              </div>
+                                              <div>
+                                                <h3 className="font-medium text-sm">Position</h3>
+                                                <p>{report.job_title || "N/A"}</p>
+                                              </div>
+                                              <div>
+                                                <h3 className="font-medium text-sm">Interview Date</h3>
+                                                <p>{format(new Date(report.created_at), "MMM d, yyyy")}</p>
+                                              </div>
+                                              <div>
+                                                <h3 className="font-medium text-sm">Duration</h3>
+                                                <p>{report?.duration || "Not recorded"}</p>
+                                              </div>
+                                            </div>
+                                            
+                                            <div>
+                                              <h3 className="font-medium text-sm">Score</h3>
+                                              <div className="mt-1 flex items-center">
+                                                <div className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800">
+                                                  {report?.score || 0}/100
+                                                </div>
+                                              </div>
+                                            </div>
+                                            
+                                            <div>
+                                              <h3 className="font-medium text-sm">Feedback</h3>
+                                              <p className="mt-1 text-sm">{report?.feedback || "No feedback provided"}</p>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-4">
+                                              <div>
+                                                <h3 className="font-medium text-sm">Strengths</h3>
+                                                {report?.strengths && report.strengths.length > 0 ? (
+                                                  <ul className="list-disc pl-5 mt-1 text-sm">
+                                                    {report.strengths.map((strength, index) => (
+                                                      <li key={index}>{strength}</li>
+                                                    ))}
+                                                  </ul>
+                                                ) : (
+                                                  <p className="mt-1 text-sm">No strengths recorded</p>
+                                                )}
+                                              </div>
+                                              <div>
+                                                <h3 className="font-medium text-sm">Areas for Improvement</h3>
+                                                {report?.improvements && report.improvements.length > 0 ? (
+                                                  <ul className="list-disc pl-5 mt-1 text-sm">
+                                                    {report.improvements.map((improvement, index) => (
+                                                      <li key={index}>{improvement}</li>
+                                                    ))}
+                                                  </ul>
+                                                ) : (
+                                                  <p className="mt-1 text-sm">No improvements recorded</p>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
                                         </DialogDescription>
                                       </DialogHeader>
-                                      <div className="space-y-4 py-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                          <div>
-                                            <p className="text-sm font-medium">Score:</p>
-                                            <p className="text-sm">{report.score ?? 'N/A'}</p>
-                                          </div>
-                                          <div>
-                                            <p className="text-sm font-medium">Duration:</p>
-                                            <p className="text-sm">{report.duration ?? 'N/A'}</p>
-                                          </div>
-                                        </div>
-                                        
-                                        <div>
-                                          <p className="text-sm font-medium mb-1">Feedback:</p>
-                                          <p className="text-sm text-muted-foreground border p-2 rounded-md bg-muted/50">
-                                            {report.feedback || 'No feedback provided.'}
-                                          </p>
-                                        </div>
-                                        
-                                        <div>
-                                          <p className="text-sm font-medium mb-1">Strengths:</p>
-                                          <ul className="list-disc list-inside text-sm text-muted-foreground border p-2 rounded-md bg-muted/50">
-                                            {report.strengths && report.strengths.length > 0 ? (
-                                              report.strengths.map((s, idx) => <li key={idx}>{s}</li>)
-                                            ) : (
-                                              <li>No strengths listed.</li>
-                                            )}
-                                          </ul>
-                                        </div>
-                                        
-                                        <div>
-                                          <p className="text-sm font-medium mb-1">Improvements:</p>
-                                          <ul className="list-disc list-inside text-sm text-muted-foreground border p-2 rounded-md bg-muted/50">
-                                            {report.improvements && report.improvements.length > 0 ? (
-                                              report.improvements.map((i, idx) => <li key={idx}>{i}</li>)
-                                            ) : (
-                                              <li>No improvements listed.</li>
-                                            )}
-                                          </ul>
-                                        </div>
-                                      </div>
                                     </DialogContent>
                                   </Dialog>
                                 </TableCell>

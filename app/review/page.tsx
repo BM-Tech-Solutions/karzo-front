@@ -11,6 +11,7 @@ import { AuthProvider } from "@/lib/auth-context"
 import { CheckCircle, Download, Star } from "lucide-react"
 import { useEffect, useState } from 'react'
 import { createReport, fetchInterviewReport, ReportCreate } from "@/lib/api-service"
+import { API_BASE_URL } from "@/lib/config"
 
 // Define interface for interview results
 interface InterviewResults {
@@ -100,7 +101,7 @@ export default function ReviewPage() {
         
         // Fetch the interview data from the API
         const token = localStorage.getItem('karzo_token')
-        const response = await fetch(`http://localhost:8000/api/interviews/${interviewId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/interviews/${interviewId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -121,7 +122,7 @@ export default function ReviewPage() {
         if (!jobTitle || !company) {
           try {
             const token = localStorage.getItem('karzo_token')
-            const jobResponse = await fetch(`http://localhost:8000/api/jobs/${data.job_id}`, {
+            const jobResponse = await fetch(`${API_BASE_URL}/api/jobs/${data.job_id}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
@@ -173,6 +174,24 @@ export default function ReviewPage() {
           ]
         }
         
+        // Check if there's an existing report for this interview
+        let existingReport = null;
+        try {
+          const reportResponse = await fetch(`${API_BASE_URL}/api/reports/interviews/${interviewId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (reportResponse.ok) {
+            existingReport = await reportResponse.json();
+            console.log('Existing report found:', existingReport);
+          }
+        } catch (reportError) {
+          console.error('Error checking for existing report:', reportError);
+        }
+        
         const resultsData = {
           score: data.score || 0,
           duration: data.duration || "N/A",
@@ -182,6 +201,9 @@ export default function ReviewPage() {
           strengths: strengths,
           improvements: improvements,
           nextSteps: "Your interview results have been recorded. You may be contacted for next steps in the hiring process.",
+          isProcessing: existingReport ? existingReport.status === "processing" : true, // Default to processing if no report or if report status is processing
+          reportId: existingReport ? existingReport.id : undefined,
+          conversationId: existingReport ? existingReport.conversation_id : undefined
         };
         
         // Transform the data to match the expected format
@@ -190,6 +212,61 @@ export default function ReviewPage() {
         // Store job title and company in localStorage for future reference
         if (jobTitle) localStorage.setItem('job_title', jobTitle);
         if (company) localStorage.setItem('company', company);
+        
+        // If we have a report ID and it's processing, set up polling to check status
+        if (resultsData.reportId && resultsData.isProcessing) {
+          const pollInterval = setInterval(async () => {
+            try {
+              const statusResponse = await fetch(`${API_BASE_URL}/api/transcript/check-report-status/${resultsData.reportId}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                console.log('Report status update:', statusData);
+                
+                if (statusData.status === 'complete') {
+                  // Report is complete, update the UI
+                  clearInterval(pollInterval);
+                  
+                  // Fetch the complete report data
+                  const reportResponse = await fetch(`${API_BASE_URL}/api/reports/interviews/${interviewId}`, {
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                      'Content-Type': 'application/json'
+                    }
+                  });
+                  
+                  if (reportResponse.ok) {
+                    const reportData = await reportResponse.json();
+                    
+                    // Update the interview results with the report data
+                    setInterviewResults(prev => {
+                      if (!prev) return prev; // Guard against null
+                      
+                      return {
+                        ...prev,
+                        isProcessing: false,
+                        score: reportData.score || prev.score,
+                        feedback: reportData.feedback || prev.feedback,
+                        strengths: Array.isArray(reportData.strengths) ? reportData.strengths : prev.strengths,
+                        improvements: Array.isArray(reportData.improvements) ? reportData.improvements : prev.improvements
+                      };
+                    });
+                  }
+                }
+              }
+            } catch (pollError) {
+              console.error('Error polling report status:', pollError);
+            }
+          }, 10000); // Poll every 10 seconds
+          
+          // Clean up interval on component unmount
+          return () => clearInterval(pollInterval);
+        }
         
         // Create a report for this interview
         try {

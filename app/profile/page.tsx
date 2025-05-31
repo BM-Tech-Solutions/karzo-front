@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AuthProvider } from "@/lib/auth-context"
 import { toast } from "@/components/ui/use-toast"
+import { API_BASE_URL } from "@/lib/config"
 
 export default function ProfilePage() {
   const { user, isLoading } = useAuth()
@@ -74,7 +75,7 @@ export default function ProfilePage() {
       // Update the candidate profile
       if (user) {
         const token = localStorage.getItem('karzo_token')
-        const response = await fetch(`http://localhost:8000/api/candidates/${user.id}/update-profile`, {
+        const response = await fetch(`${API_BASE_URL}/api/candidates/${user.id}/update-profile`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`

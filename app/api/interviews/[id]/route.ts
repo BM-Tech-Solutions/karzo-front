@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { API_BASE_URL } from '@/lib/config';
 
 export async function GET(
   request: Request,
@@ -28,7 +29,7 @@ export async function GET(
     const data = await response.json();
     
     // Get job details to include job title and company
-    const jobResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/jobs/${data.job_id}`, {
+    const jobResponse = await fetch(`${API_BASE_URL}/api/jobs/${data.job_id}`, {
       headers: {
         // Forward authorization header if available
         ...(request.headers.get('Authorization') 

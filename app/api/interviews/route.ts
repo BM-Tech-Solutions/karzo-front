@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { API_BASE_URL } from '@/lib/config';
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
     }
     
     // Forward the request to the backend API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/interviews/`, {
+    const response = await fetch(`${API_BASE_URL}/api/interviews/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
   if (id) {
     try {
       // Forward the request to the backend API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/interviews/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/interviews/${id}`, {
         headers: {
           // Forward authorization header if available
           ...(request.headers.get('Authorization') 

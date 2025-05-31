@@ -1,4 +1,5 @@
 import { Job } from "@/types/job";
+import { API_BASE_URL } from './config';
 
 export async function fetchJobs(): Promise<Job[]> {
   try {
@@ -6,7 +7,7 @@ export async function fetchJobs(): Promise<Job[]> {
     const token = typeof window !== 'undefined' ? localStorage.getItem('karzo_token') : null;
     
     // Create a simple GET request first to avoid preflight issues
-    const url = 'http://localhost:8000/api/jobs';
+    const url = `${API_BASE_URL}/api/jobs`;
     console.log('Fetching jobs from:', url);
     
     // Create request with minimal headers to avoid triggering preflight

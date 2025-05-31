@@ -15,6 +15,7 @@ import { AuthProvider } from "@/lib/auth-context"
 import { Textarea } from "@/components/ui/textarea"
 import { fetchJobs } from "@/lib/api-service"
 import { Job } from "@/lib/api-service"
+import { API_BASE_URL } from "@/lib/config"
 
 export default function ApplyPage() {
   const { user, isLoading } = useAuth()
@@ -31,13 +32,17 @@ export default function ApplyPage() {
   const [loadingJobs, setLoadingJobs] = useState(true)
   const [resumeUrl, setResumeUrl] = useState<string | null>(null) // Add state for resume URL
 
+  // Store the job ID from URL in a ref to persist it between renders
+  const jobIdFromUrl = searchParams?.get("job")
+  
+  // First, fetch the jobs without trying to set the selected job
   useEffect(() => {
-    // Fetch real jobs from the API
     const getJobs = async () => {
       try {
         setLoadingJobs(true)
         const jobsData = await fetchJobs()
         setJobs(jobsData)
+        console.log("Jobs loaded:", jobsData.length)
       } catch (error) {
         console.error("Error fetching jobs:", error)
       } finally {
@@ -46,15 +51,33 @@ export default function ApplyPage() {
     }
 
     getJobs()
-
-    // Pre-fill job from query parameter
-    if (searchParams) {
-      const jobId = searchParams.get("job")
-      if (jobId) {
-        setSelectedJob(jobId)
+  }, []) // Only run once on component mount
+  
+  // Then, in a separate effect, set the selected job once jobs are loaded
+  useEffect(() => {
+    // Only proceed if jobs are loaded and we have a job ID from URL
+    if (!loadingJobs && jobs.length > 0 && jobIdFromUrl) {
+      console.log("Job ID from URL:", jobIdFromUrl)
+      console.log("Setting selected job to:", jobIdFromUrl, "from", jobs.length, "available jobs")
+      
+      // Convert job ID to string to ensure it matches the format in the Select component
+      const jobIdString = jobIdFromUrl.toString()
+      setSelectedJob(jobIdString)
+      
+      // Verify the job exists in the loaded jobs
+      const jobExists = jobs.some(job => job.id.toString() === jobIdString)
+      console.log("Job exists in loaded jobs:", jobExists)
+      
+      if (!jobExists) {
+        console.warn("Selected job ID not found in available jobs")
+      } else {
+        const job = jobs.find(job => job.id.toString() === jobIdString)
+        console.log("Selected job details:", job?.title, "-", job?.company)
       }
     }
-
+  }, [jobs, loadingJobs, jobIdFromUrl]) // Run when jobs are loaded or job ID changes
+  
+  useEffect(() => {
     // Pre-fill user information if logged in
     if (user) {
       console.log("User data:", JSON.stringify(user)) // More detailed logging
@@ -73,7 +96,7 @@ export default function ApplyPage() {
         console.log("Setting resume URL to:", user.resume_url)
       } 
     }
-  }, [user, searchParams])
+  }, [user])
 
   // Update the handleSubmit function in your apply page
   
@@ -118,7 +141,7 @@ export default function ApplyPage() {
       // Update the candidate profile
       if (user && (phone || resumeFile)) {
         const token = localStorage.getItem('karzo_token');
-        await fetch(`http://localhost:8000/api/candidates/${user.id}/update-profile`, {
+        await fetch(`${API_BASE_URL}/api/candidates/${user.id}/update-profile`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -156,7 +179,12 @@ export default function ApplyPage() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="job">Position</Label>
-                    <Select value={selectedJob} onValueChange={setSelectedJob} required>
+                    <Select 
+                      value={selectedJob} 
+                      onValueChange={setSelectedJob} 
+                      required
+                      defaultValue={jobIdFromUrl?.toString()}
+                    >
                       <SelectTrigger id="job">
                         <SelectValue placeholder={loadingJobs ? "Loading positions..." : "Select a position"} />
                       </SelectTrigger>
@@ -164,16 +192,20 @@ export default function ApplyPage() {
                         {loadingJobs ? (
                           <SelectItem value="loading" disabled>Loading positions...</SelectItem>
                         ) : jobs.length > 0 ? (
-                          jobs.map((job) => (
-                            <SelectItem key={job.id} value={job.id.toString()}>
-                              {job.title} - {job.company}
-                            </SelectItem>
-                          ))
+                          jobs.map((job) => {
+                            console.log(`Comparing job.id ${job.id.toString()} with selectedJob ${selectedJob}`);
+                            return (
+                              <SelectItem key={job.id} value={job.id.toString()}>
+                                {job.title} - {job.company}
+                              </SelectItem>
+                            );
+                          })
                         ) : (
                           <SelectItem value="none" disabled>No positions available</SelectItem>
                         )}
                       </SelectContent>
                     </Select>
+                    {selectedJob && <p className="text-xs text-muted-foreground mt-1">Selected Job ID: {selectedJob}</p>}
                   </div>
 
                   <div className="space-y-2">

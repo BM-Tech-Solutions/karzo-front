@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useConversation } from "@/hooks/useConversation"
 import { AuthProvider } from "@/lib/auth-context"
 import { mockJobs } from "@/lib/mock-data"
+import { API_BASE_URL } from "@/lib/config"
 
 import {
   AlertCircle,
@@ -131,7 +132,7 @@ export default function InterviewRoomPage() {
       // Get the authentication token from localStorage
       const token = localStorage.getItem('karzo_token')
       
-      const response = await fetch(`http://localhost:8000/api/jobs/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/jobs/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -188,7 +189,7 @@ export default function InterviewRoomPage() {
       
       console.log('Interview request data:', JSON.stringify(interviewData, null, 2))
       
-      const response = await fetch('http://localhost:8000/api/interviews/', {
+      const response = await fetch(`${API_BASE_URL}/api/interviews/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

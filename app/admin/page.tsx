@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { fetchJobs, fetchAllInterviews, Interview, deleteInterview, Report, fetchInterviewReport, fetchAllReports, deleteReport, deleteCandidate, generateReportFromTranscript, checkReportStatus } from "@/lib/api-service"
 import { toast } from "@/components/ui/use-toast"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { API_BASE_URL } from "@/lib/config"
 
 export default function AdminDashboardPage() {
   const { user, isLoading } = useAuth()
@@ -56,7 +57,7 @@ export default function AdminDashboardPage() {
       setErrorCandidates(null)
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("karzo_token") : null
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/candidates`, {
+        const res = await fetch(`${API_BASE_URL}/api/candidates`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         })
         if (!res.ok) throw new Error("Failed to fetch candidates")
@@ -306,8 +307,18 @@ export default function AdminDashboardPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{mockAdminStats.totalCandidates}</div>
-                <p className="text-xs text-muted-foreground">+12% from last month</p>
+                <div className="text-2xl font-bold">{loadingCandidates ? "..." : candidates.length}</div>
+                <p className="text-xs text-muted-foreground">Active candidates in system</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Jobs</CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{loadingJobs ? "..." : jobs.length}</div>
+                <p className="text-xs text-muted-foreground">Active job listings</p>
               </CardContent>
             </Card>
             <Card>
@@ -316,28 +327,18 @@ export default function AdminDashboardPage() {
                 <Video className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{mockAdminStats.interviewsCompleted}</div>
-                <p className="text-xs text-muted-foreground">+8% from last month</p>
+                <div className="text-2xl font-bold">{loadingInterviews ? "..." : interviews.filter(interview => interview.status === "completed").length}</div>
+                <p className="text-xs text-muted-foreground">Total completed interviews</p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Interviews Scheduled</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{mockAdminStats.interviewsScheduled}</div>
-                <p className="text-xs text-muted-foreground">+4% from last month</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Average Score</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{mockAdminStats.averageScore}/100</div>
-                <p className="text-xs text-muted-foreground">+2 points from last month</p>
+                <div className="text-2xl font-bold">{loadingReports ? "..." : reports.length}</div>
+                <p className="text-xs text-muted-foreground">Generated interview reports</p>
               </CardContent>
             </Card>
           </div>
@@ -778,7 +779,7 @@ export default function AdminDashboardPage() {
                                                   <h3 className="font-medium text-sm">Score</h3>
                                                   <div className="mt-1 flex items-center">
                                                     <div className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800">
-                                                      {report?.score || 0}/10
+                                                      {report?.score || 0}/100
                                                     </div>
                                                   </div>
                                                 </div>
