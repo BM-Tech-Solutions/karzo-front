@@ -54,6 +54,10 @@ export default function InterviewRoomPage() {
     isScreenSharing,
     toggleScreenShare,
     audioLevel,
+    permissionRequested,
+    permissionGranted,
+    grantPermission,
+    denyPermission
   } = useConversation()
   const [tipsPanelExpanded, setTipsPanelExpanded] = useState(false)
   const [interviewStarted, setInterviewStarted] = useState(false)
@@ -111,19 +115,24 @@ export default function InterviewRoomPage() {
   };
 
   const handleStartInterview = async () => {
+    // Call startConversation which will trigger permission request
     await startConversation({
       jobOffer: jobTitle || "Frontend Developer", // Fallback if not available
       fullName: user?.full_name || "",
     });
-    setInterviewStarted(true);
     
-    // Start the timer
-    const timer = setInterval(() => {
-      setCurrentTime(prev => prev + 1);
-    }, 1000);
-    
-    // Store the timer ID to clear it later
-    return () => clearInterval(timer);
+    // If permission has been granted, start the interview
+    if (permissionGranted) {
+      setInterviewStarted(true);
+      
+      // Start the timer
+      const timer = setInterval(() => {
+        setCurrentTime(prev => prev + 1);
+      }, 1000);
+      
+      // Store the timer ID to clear it later
+      return () => clearInterval(timer);
+    }
   };
 
   // Add this function to fetch job details
@@ -297,7 +306,34 @@ export default function InterviewRoomPage() {
 
               {/* Video conference area */}
               <div className="flex-1 bg-black/5 rounded-xl overflow-hidden relative flex items-center justify-center">
-                {!interviewStarted ? (
+                {permissionRequested ? (
+                  <div className="text-center p-8 max-w-md mx-auto">
+                    <div className="mb-6">
+                      <div className="mx-auto bg-primary/10 w-24 h-24 rounded-full flex items-center justify-center mb-4">
+                        <Mic className="h-12 w-12 text-primary" />
+                      </div>
+                      <h2 className="text-xl font-medium">Interview Permission</h2>
+                      <p className="text-muted-foreground mt-2 mb-6">
+                        This interview will use ElevenLabs AI for transcription. Microphone access is optional but recommended for the best experience.
+                      </p>
+                      <Alert className="mb-4">
+                        <Info className="h-4 w-4" />
+                        <AlertTitle>Important</AlertTitle>
+                        <AlertDescription>
+                          You can proceed with the interview even if you don't grant microphone access.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                    <div className="flex gap-3 justify-center">
+                      <Button variant="outline" onClick={denyPermission}>
+                        Cancel
+                      </Button>
+                      <Button onClick={grantPermission}>
+                        Continue to Interview
+                      </Button>
+                    </div>
+                  </div>
+                ) : !interviewStarted ? (
                   <div className="text-center p-8">
                     <div className="mb-6">
                       <div className="mx-auto bg-primary/10 w-24 h-24 rounded-full flex items-center justify-center mb-4">

@@ -44,6 +44,8 @@ export const useConversation = () => {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [transcript, setTranscript] = useState<any[] | null>(null);
+  const [permissionRequested, setPermissionRequested] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState(false);
 
   // Simulate audio levels for visualization
   useEffect(() => {
@@ -59,16 +61,42 @@ export const useConversation = () => {
     }
   }, [isConnected, isMuted]);
 
+  // Request user permission to start interview
+  const requestPermission = () => {
+    setPermissionRequested(true);
+  };
+
+  // User has granted permission to proceed with interview
+  const grantPermission = () => {
+    setPermissionGranted(true);
+    setPermissionRequested(false);
+  };
+
+  // User has denied permission to proceed with interview
+  const denyPermission = () => {
+    setPermissionRequested(false);
+    setError("Interview cancelled by user");
+  };
+
   const startConversation = async (formData: FormData) => {
     try {
+      // First request user permission
+      if (!permissionGranted) {
+        requestPermission();
+        return; // Wait for user to grant permission
+      }
+      
       setConnectionStatus(translations.connectionStatus.connecting);
       setError(null);
 
-      // Request audio permissions
+      // Try to request audio permissions, but continue even if not granted
       try {
         await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("Microphone access granted");
       } catch (err) {
-        throw new Error("Microphone access is required for the interview");
+        console.log("Microphone access not granted, continuing without audio input");
+        // Set muted state since we don't have microphone access
+        setIsMuted(true);
       }
 
       // Get agentId from environment variable with fallback
@@ -283,10 +311,9 @@ export const useConversation = () => {
   return {
     connectionStatus,
     isConnected,
+    error,
     startConversation,
     stopConversation,
-    sessionInfo,
-    error,
     isMuted,
     toggleMute,
     isCameraOff,
@@ -294,6 +321,11 @@ export const useConversation = () => {
     isScreenSharing,
     toggleScreenShare,
     audioLevel,
+    fetchTranscript,
     transcript,
+    permissionRequested,
+    permissionGranted,
+    grantPermission,
+    denyPermission,
   };
 };
