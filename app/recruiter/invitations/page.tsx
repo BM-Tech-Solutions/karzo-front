@@ -13,23 +13,20 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { candidateInviteSchema } from "@/lib/company-form-schema"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Textarea } from "@/components/ui/textarea"
+import { getInvitations, createInvitation, deleteInvitation, resendInvitation, Invitation as InvitationType } from "@/lib/invitation-service"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { toast } from "@/components/ui/use-toast"
+import { Toaster } from "@/components/ui/toaster"
 
 interface JobOffer {
   id: number
   title: string
 }
 
-interface Invitation {
-  id: number
-  email: string
-  job_offer_title: string
-  status: "pending" | "accepted" | "expired"
-  created_at: string
-}
-
 export default function InvitationsPage() {
   const { company } = useCompanyAuth()
-  const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [invitations, setInvitations] = useState<InvitationType[]>([])
   const [jobOffers, setJobOffers] = useState<JobOffer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -41,6 +38,7 @@ export default function InvitationsPage() {
     defaultValues: {
       email: "",
       jobOfferId: undefined,
+      message: "",
     },
   })
 
@@ -48,25 +46,23 @@ export default function InvitationsPage() {
     async function fetchData() {
       try {
         setIsLoading(true)
-        // Fetch invitations and job offers from the backend API
-        const [invitationsRes, jobOffersRes] = await Promise.all([
-          fetchWithCompanyAuth(`${API_BASE_URL}/api/company/invitations/`),
-          fetchWithCompanyAuth(`${API_BASE_URL}/api/job-offers/company/`),
-        ])
-
-        if (invitationsRes.ok && jobOffersRes.ok) {
-          const [invitationsData, jobOffersData] = await Promise.all([
-            invitationsRes.json(),
-            jobOffersRes.json(),
-          ])
-
-          setInvitations(invitationsData)
+        // Fetch invitations from the API
+        const invitationsRes = await getInvitations()
+        setInvitations(invitationsRes)
+        
+        // Fetch job offers from the API
+        const jobOffersRes = await fetchWithCompanyAuth(`${API_BASE_URL}/api/job-offers/company/`)
+        if (jobOffersRes.ok) {
+          const jobOffersData = await jobOffersRes.json()
           setJobOffers(jobOffersData)
-        } else {
-          console.error("Failed to fetch data: One or more requests failed")
         }
       } catch (error) {
         console.error("Failed to fetch data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load invitations. Please try again.",
+          variant: "destructive",
+        })
       } finally {
         setIsLoading(false)
       }
@@ -75,38 +71,36 @@ export default function InvitationsPage() {
     fetchData()
   }, [])
 
-  const onSubmit = async (values: { email: string; jobOfferId?: number }) => {
+  const onSubmit = async (values: { email: string; jobOfferId?: number; message?: string }) => {
     setInviteError("")
     setInviteSuccess("")
 
     try {
-      // This endpoint would need to be implemented in the backend
-      const response = await fetchWithCompanyAuth(`${API_BASE_URL}/api/company/invitations/`, {
-        method: "POST",
-        body: JSON.stringify(values),
+      const newInvitation = await createInvitation({
+        email: values.email,
+        job_offer_id: values.jobOfferId,
+        message: values.message
       })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.detail || "Failed to send invitation")
-      }
 
       setInviteSuccess(`Invitation sent to ${values.email}`)
       form.reset()
       setIsDialogOpen(false)
 
-      // Add the new invitation to the list (in a real app, you'd get the full data from the API)
-      const newInvitation: Invitation = {
-        id: Math.floor(Math.random() * 1000), // This would come from the API
-        email: values.email,
-        job_offer_title: jobOffers.find(job => job.id === values.jobOfferId)?.title || "Unknown Position",
-        status: "pending",
-        created_at: new Date().toISOString(),
-      }
+      // Refresh the invitations list
+      const updatedInvitations = await getInvitations()
+      setInvitations(updatedInvitations)
 
-      setInvitations([newInvitation, ...invitations])
+      toast({
+        title: "Success",
+        description: `Invitation sent to ${values.email}`,
+      })
     } catch (err) {
       setInviteError((err as Error).message)
+      toast({
+        title: "Error",
+        description: (err as Error).message,
+        variant: "destructive",
+      })
     }
   }
 
@@ -159,6 +153,7 @@ export default function InvitationsPage() {
     <div className="flex h-screen">
       <RecruiterSidebar items={sidebarItems} className="w-64" />
       <div className="flex-1 overflow-auto">
+        <Toaster />
         <div className="p-8">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">Candidate Invitations</h1>
@@ -215,6 +210,23 @@ export default function InvitationsPage() {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={form.control}
+                      name="message"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Custom Message (Optional)</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Add a personal message to the invitation email" 
+                              className="resize-none" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     {inviteError && <div className="text-sm font-medium text-destructive">{inviteError}</div>}
                     <DialogFooter>
                       <Button type="submit">Send Invitation</Button>
@@ -253,7 +265,7 @@ export default function InvitationsPage() {
                       <div>
                         <CardTitle>{invitation.email}</CardTitle>
                         <CardDescription className="mt-1">
-                          Position: {invitation.job_offer_title}
+                          Position: {invitation.job_title || "No specific position"}
                         </CardDescription>
                       </div>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(invitation.status)}`}>
@@ -267,13 +279,71 @@ export default function InvitationsPage() {
                     </p>
                     <div className="mt-4 flex space-x-2">
                       {invitation.status === "pending" && (
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await resendInvitation(invitation.id);
+                              toast({
+                                title: "Success",
+                                description: `Invitation resent to ${invitation.email}`,
+                              });
+                              // Refresh invitations
+                              const updatedInvitations = await getInvitations();
+                              setInvitations(updatedInvitations);
+                            } catch (error) {
+                              toast({
+                                title: "Error",
+                                description: `Failed to resend invitation: ${(error as Error).message}`,
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                        >
                           Resend Invitation
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700">
-                        Delete
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700">
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete the invitation sent to {invitation.email}.
+                              This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={async () => {
+                                try {
+                                  await deleteInvitation(invitation.id);
+                                  toast({
+                                    title: "Success",
+                                    description: "Invitation deleted successfully",
+                                  });
+                                  // Remove from local state
+                                  setInvitations(invitations.filter(inv => inv.id !== invitation.id));
+                                } catch (error) {
+                                  toast({
+                                    title: "Error",
+                                    description: `Failed to delete invitation: ${(error as Error).message}`,
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </CardContent>
                 </Card>

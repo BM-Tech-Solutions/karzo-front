@@ -31,4 +31,5 @@ export const jobOfferSchema = z.object({
 export const candidateInviteSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   jobOfferId: z.number().optional(),
+  message: z.string().optional(),
 })

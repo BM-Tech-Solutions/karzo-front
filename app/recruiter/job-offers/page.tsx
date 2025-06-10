@@ -171,14 +171,15 @@ export default function JobOffersPage() {
     
     try {
       setIsUpdating(true)
-      const response = await fetchWithCompanyAuth(`${API_BASE_URL}/api/job-offers/${selectedJob.id}/invite`, {
+      const response = await fetchWithCompanyAuth(`${API_BASE_URL}/api/invitations/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email: values.email,
-          message: values.message || "",
+          job_offer_id: selectedJob.id,
+          message: values.message || ""
         }),
       })
       
