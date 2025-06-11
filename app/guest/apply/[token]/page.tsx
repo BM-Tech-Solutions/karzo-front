@@ -147,6 +147,14 @@ export default function GuestApplyPage() {
         localStorage.setItem('application_id', applicationData.id.toString())
       }
       
+      // Store guest interview ID if returned
+      if (applicationData.guest_interview_id) {
+        console.log(`Storing guest interview ID: ${applicationData.guest_interview_id}`)
+        localStorage.setItem('guest_interview_id', applicationData.guest_interview_id.toString())
+      } else {
+        console.log('No guest interview ID returned from the API')
+      }
+      
       // Clear any existing interview data
       localStorage.removeItem('interview_id')
       

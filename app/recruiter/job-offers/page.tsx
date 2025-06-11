@@ -250,6 +250,10 @@ export default function JobOffersPage() {
       title: "Interviews",
     },
     {
+      href: "/recruiter/reports",
+      title: "Reports",
+    },
+    {
       href: "/recruiter/invitations",
       title: "Invitations",
     },

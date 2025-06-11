@@ -5,7 +5,6 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -165,7 +164,6 @@ export default function ApplyPage() {
   return (
     <AuthProvider>
       <div className="flex min-h-screen flex-col">
-        <Header />
         <main className="flex-1 container py-8">
           <div className="max-w-2xl mx-auto">
             <h1 className="text-3xl font-bold tracking-tight mb-6">Apply for Position</h1>

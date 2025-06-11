@@ -100,7 +100,7 @@ export const useConversation = () => {
       }
 
       // Get agentId from environment variable with fallback
-      const agentId = process.env.NEXT_PUBLIC_AGENT_ID || "j6u20kkiKF2sSwOEpZoS";
+      const agentId = process.env.NEXT_PUBLIC_AGENT_ID || "agent_01jxfhf5f5fr5aakr4t89w89rc";
       
       // Get API key using the same method as in fetchTranscript
       let apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || 
@@ -170,10 +170,14 @@ export const useConversation = () => {
         agentId: agentId
       });
 
-      console.log("Session started:", {
-        conversationId,
-        agentId: agentId
-      });
+      console.log("=== INTERVIEW SESSION STARTED ===");
+      console.log(`Conversation ID: ${conversationId}`);
+      console.log(`Agent ID: ${agentId}`);
+      console.log("==================================");
+      
+      // Store the conversation ID in localStorage for debugging purposes
+      localStorage.setItem('debug_conversation_id', conversationId);
+      console.log("Conversation ID stored in localStorage as 'debug_conversation_id'");
     } catch (error) {
       console.error("Failed to start conversation:", error);
       const errorMessage = (error as Error)?.message || "unknown error";
@@ -202,7 +206,7 @@ export const useConversation = () => {
       
       // Hard-code the API key as a last resort (only for debugging)
       if (!apiKey) {
-        apiKey = "sk_7285d9e3401a8364817514d44289c9acad85e3ddeb1e0887";
+        apiKey = "sk_f2f560187abc8627a78b612514e044c1b423594de4aa1060";
         console.log("Using hardcoded API key for testing");
       }
       
@@ -273,7 +277,7 @@ export const useConversation = () => {
       const finalConversationId = conversationRef.current.getId();
 
       // Get agentId from environment variable with fallback
-      const agentId = process.env.NEXT_PUBLIC_AGENT_ID || "j6u20kkiKF2sSwOEpZoS";
+      const agentId = process.env.NEXT_PUBLIC_AGENT_ID || "agent_01jxfhf5f5fr5aakr4t89w89rc";
 
       const finalSessionInfo = {
         conversationId: finalConversationId,

@@ -76,6 +76,10 @@ export default function RecruiterDashboard() {
       title: "Interviews",
     },
     {
+      href: "/recruiter/reports",
+      title: "Reports",
+    },
+    {
       href: "/recruiter/invitations",
       title: "Invitations",
     },

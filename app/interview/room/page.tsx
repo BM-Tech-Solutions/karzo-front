@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { Header } from "@/components/header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useConversation } from "@/hooks/useConversation"
 import { AuthProvider } from "@/lib/auth-context"
 import { mockJobs } from "@/lib/mock-data"
 import { API_BASE_URL } from "@/lib/config"
+import { completeGuestInterview } from "@/lib/api-service"
 
 import {
   AlertCircle,
@@ -165,11 +165,41 @@ export default function InterviewRoomPage() {
   const handleEndInterview = async () => {
     await stopConversation()
     
+    // Get the conversation ID from localStorage for debugging
+    const conversationId = localStorage.getItem('debug_conversation_id')
+    console.log("=== INTERVIEW COMPLETION ===")
+    console.log(`Conversation ID at interview completion: ${conversationId}`)
+    console.log("==============================")
+    
     // Save interview data to the database
     try {
+      // Check if this is a guest interview (no user or guest token in localStorage)
+      const isGuestInterview = !user && localStorage.getItem('guest_interview_id')
+      
+      if (isGuestInterview) {
+        // This is a guest interview, update its status to "passed"
+        const guestInterviewId = parseInt(localStorage.getItem('guest_interview_id') || '0')
+        
+        if (guestInterviewId) {
+          const conversationId = localStorage.getItem('debug_conversation_id') || undefined
+          console.log(`Marking guest interview ${guestInterviewId} as completed with conversation ID: ${conversationId}`)
+          try {
+            await completeGuestInterview(guestInterviewId, conversationId)
+            console.log(`Successfully marked guest interview ${guestInterviewId} as completed`)
+          } catch (error) {
+            console.error('Error marking guest interview as completed:', error)
+          }
+        }
+        
+        // Redirect to thank you page for guest interviews
+        router.push('/review/thank-you')
+        return
+      }
+      
+      // Regular interview flow for logged-in users
       if (!user || !jobId) {
         console.error('Missing user or job data')
-        router.push('/review')
+        router.push('/review/thank-you')
         return
       }
       
@@ -218,8 +248,8 @@ export default function InterviewRoomPage() {
       // Store interview ID for the review page
       localStorage.setItem('interview_id', data.id.toString())
       
-      // Redirect to review page
-      router.push('/review')
+      // Redirect to thank you page
+      router.push('/review/thank-you')
     } catch (error) {
       console.error('Error saving interview:', error)
       // Still redirect to review page even if saving fails
@@ -232,8 +262,6 @@ export default function InterviewRoomPage() {
   return (
     <AuthProvider>
       <div className="flex min-h-screen flex-col bg-gradient-to-b from-background via-background to-muted/30">
-        <Header />
-
         {error && (
           <Alert variant="destructive" className="mx-auto mt-4 max-w-3xl">
             <AlertCircle className="h-4 w-4" />

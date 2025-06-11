@@ -144,6 +144,10 @@ export default function InvitationsPage() {
       title: "Interviews",
     },
     {
+      href: "/recruiter/reports",
+      title: "Reports",
+    },
+    {
       href: "/recruiter/invitations",
       title: "Invitations",
     },

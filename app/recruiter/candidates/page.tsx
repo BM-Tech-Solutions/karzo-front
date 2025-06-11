@@ -14,8 +14,10 @@ interface Candidate {
   email: string
   job_title: string
   resume_url?: string
-  status: "applied" | "screening" | "interviewed" | "hired" | "rejected"
+  status: "applied" | "screening" | "interviewed" | "hired" | "rejected" | "passed"
   applied_date: string
+  interview_score?: number
+  recruiter_id?: number
 }
 
 export default function CandidatesPage() {
@@ -28,11 +30,33 @@ export default function CandidatesPage() {
     async function fetchCandidates() {
       try {
         setIsLoading(true)
-        // Fetch candidates from the backend API
+        // Fetch candidates from the backend API using the combined endpoint that includes guest candidates
         const response = await fetchWithCompanyAuth(`${API_BASE_URL}/api/company/candidates/`)
         if (response.ok) {
           const data = await response.json()
-          setCandidates(data)
+          console.log("Fetched candidates data:", data) // Debug log to see what's coming from the API
+          
+          // Map the data to ensure consistent field names
+          const normalizedCandidates = data.map((candidate: any) => {
+            // Determine the correct name field
+            const fullName = candidate.name || candidate.full_name || "Unknown";
+            
+            return {
+              id: candidate.id,
+              full_name: fullName,
+              email: candidate.email || "",
+              job_title: candidate.job_title || "Not specified",
+              resume_url: candidate.resume_url || null,
+              // Include pending status to show guest candidates
+              status: candidate.status || "pending",
+              applied_date: candidate.created_at || new Date().toISOString()
+            };
+          })
+          
+          console.log("Normalized candidates:", normalizedCandidates);
+          
+          // Show all candidates including pending ones
+          setCandidates(normalizedCandidates)
         } else {
           console.error("Failed to fetch candidates:", response.statusText)
         }
@@ -62,6 +86,10 @@ export default function CandidatesPage() {
     {
       href: "/recruiter/interviews",
       title: "Interviews",
+    },
+    {
+      href: "/recruiter/reports",
+      title: "Reports",
     },
     {
       href: "/recruiter/invitations",
@@ -96,6 +124,8 @@ export default function CandidatesPage() {
         return 'bg-green-100 text-green-800'
       case 'rejected':
         return 'bg-red-100 text-red-800'
+      case 'passed':
+        return 'bg-emerald-100 text-emerald-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -107,7 +137,8 @@ export default function CandidatesPage() {
       <div className="flex-1 overflow-auto">
         <div className="p-8">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">Candidates</h1>
+            <h1 className="text-3xl font-bold">Passed Candidates</h1>
+            <p className="text-muted-foreground">Candidates who passed interviews sent by you</p>
           </div>
 
           <div className="mb-6">
@@ -173,14 +204,14 @@ export default function CandidatesPage() {
                           <p>No resume available</p>
                         )}
                       </div>
+                      {candidate.interview_score !== undefined && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Interview Score</p>
+                          <p className="font-medium">{candidate.interview_score}/100</p>
+                        </div>
+                      )}
                     </div>
                     <div className="mt-4 flex space-x-2">
-                      <Button variant="outline" size="sm">
-                        View Profile
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        Schedule Interview
-                      </Button>
                       {candidate.status !== "hired" && candidate.status !== "rejected" && (
                         <>
                           <Button variant="outline" size="sm" className="text-green-500 hover:text-green-700">
@@ -191,6 +222,9 @@ export default function CandidatesPage() {
                           </Button>
                         </>
                       )}
+                      <Button variant="outline" size="sm" className="text-gray-500 hover:text-gray-700">
+                        Delete
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
