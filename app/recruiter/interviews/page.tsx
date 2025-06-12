@@ -96,12 +96,22 @@ export default function InterviewsPage() {
       const result = await generateReportFromTranscript(interviewId, conversationId)
       const reportId = result.report_id
       
+      // Update the interviews list immediately to show processing status
+      setInterviews(prevInterviews => 
+        prevInterviews.map(interview => 
+          interview.id === interviewId 
+            ? { ...interview, report_id: reportId, report_status: "processing" } 
+            : interview
+        )
+      )
+      
       // Start polling for report status
       const checkInterval = setInterval(async () => {
         try {
           const statusResult = await checkReportStatus(reportId)
+          console.log(`Report ${reportId} status:`, statusResult)
           
-          if (statusResult.status === "complete") {
+          if (statusResult.status === "complete" || statusResult.status === "completed") {
             clearInterval(checkInterval)
             setProcessingReports(prev => ({ ...prev, [interviewId]: false }))
             
@@ -109,11 +119,20 @@ export default function InterviewsPage() {
             try {
               await markGuestInterviewDone(interviewId);
               console.log(`Interview ${interviewId} marked as done after report generation`);
+              
+              // Update the local state to reflect the change immediately
+              setInterviews(prevInterviews => 
+                prevInterviews.map(interview => 
+                  interview.id === interviewId 
+                    ? { ...interview, status: "done", report_status: "complete" } 
+                    : interview
+                )
+              )
             } catch (error) {
               console.error(`Failed to mark interview ${interviewId} as done:`, error);
-              // Continue with the flow even if this fails
             }
             
+            // Refresh the data from server
             fetchInterviews()
             toast({ 
               title: "Report Generated", 
@@ -123,6 +142,16 @@ export default function InterviewsPage() {
           } else if (statusResult.status === "failed") {
             clearInterval(checkInterval)
             setProcessingReports(prev => ({ ...prev, [interviewId]: false }))
+            
+            // Update the local state
+            setInterviews(prevInterviews => 
+              prevInterviews.map(interview => 
+                interview.id === interviewId 
+                  ? { ...interview, report_status: "failed" } 
+                  : interview
+              )
+            )
+            
             fetchInterviews()
             toast({ 
               title: "Report Generation Failed", 
@@ -133,7 +162,7 @@ export default function InterviewsPage() {
         } catch (error) {
           console.error("Error checking report status:", error)
         }
-      }, 10000) // Check every 10 seconds
+      }, 5000) // Check every 5 seconds instead of 10
     } catch (error) {
       console.error("Error generating report:", error)
       setProcessingReports(prev => ({ ...prev, [interviewId]: false }))
@@ -261,6 +290,12 @@ export default function InterviewsPage() {
                         <p className="text-sm text-muted-foreground">Job Position</p>
                         <p className="font-medium">{interview.job_offer_title}</p>
                       </div>
+                      {interview.conversation_id && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Conversation ID</p>
+                          <p className="font-medium text-xs truncate" title={interview.conversation_id}>{interview.conversation_id}</p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm text-muted-foreground">Scheduled Date</p>
                         <p className="font-medium">{formatDate(interview.scheduled_date)}</p>
@@ -295,28 +330,39 @@ export default function InterviewsPage() {
                       ) : (
                         // No report yet - show generate button (disabled unless interview is passed)
                         <div className="relative group">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="mr-2"
-                            disabled={interview.status !== "passed" && interview.status !== "processing"}
-                            onClick={() => {
-                              // If interview has conversation ID, generate report directly
-                              if (interview.conversation_id) {
-                                handleGenerateReport(interview.id, interview.conversation_id);
-                              } else {
-                                // Otherwise show a message that no conversation exists yet
-                                toast({
-                                  title: "No Conversation Available",
-                                  description: "This interview doesn't have a conversation transcript yet.",
-                                  variant: "destructive",
-                                });
-                              }
-                            }}
-                          >
-                            {interview.status !== "passed" && interview.status !== "processing" ? "Interview Not Completed" : "Generate Report"}
-                          </Button>
-                          {interview.status !== "passed" && interview.status !== "processing" && (
+                          {interview.status === "done" ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mr-2"
+                              disabled
+                            >
+                              Report Generated
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mr-2"
+                              disabled={interview.status !== "passed" && interview.status !== "processing"}
+                              onClick={() => {
+                                // If interview has conversation ID, generate report directly
+                                if (interview.conversation_id) {
+                                  handleGenerateReport(interview.id, interview.conversation_id);
+                                } else {
+                                  // Otherwise show a message that no conversation exists yet
+                                  toast({
+                                    title: "No Conversation Available",
+                                    description: "This interview doesn't have a conversation transcript yet.",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              {interview.status !== "passed" && interview.status !== "processing" ? "Interview Not Completed" : "Generate Report"}
+                            </Button>
+                          )}
+                          {interview.status !== "passed" && interview.status !== "processing" && interview.status !== "done" && (
                             <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-black text-white text-xs rounded py-1 px-2 whitespace-nowrap">
                               Report generation is only available after the interview is completed
                             </div>

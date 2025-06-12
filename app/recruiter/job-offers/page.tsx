@@ -70,7 +70,6 @@ export default function JobOffersPage() {
   // Invite form schema
   const inviteSchema = z.object({
     email: z.string().email("Invalid email address"),
-    message: z.string().optional(),
   })
   
   // Form for inviting candidates
@@ -78,7 +77,6 @@ export default function JobOffersPage() {
     resolver: zodResolver(inviteSchema),
     defaultValues: {
       email: "",
-      message: "",
     },
   })
 
@@ -178,8 +176,7 @@ export default function JobOffersPage() {
         },
         body: JSON.stringify({
           email: values.email,
-          job_offer_id: selectedJob.id,
-          message: values.message || ""
+          job_offer_id: selectedJob.id
         }),
       })
       
@@ -498,19 +495,6 @@ export default function JobOffersPage() {
                     <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="candidate@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={inviteForm.control}
-                name="message"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Message (Optional)</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Add a personal message to the invitation" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -14,7 +14,7 @@ interface Report {
   id: number
   candidate_name: string
   job_title: string
-  status: "processing" | "complete" | "failed"
+  status: "processing" | "complete" | "completed" | "failed"
   interview_id?: number
   guest_interview_id?: number
   created_at: string
@@ -46,6 +46,12 @@ export default function ReportsPage() {
       const { getAllReports } = await import('@/lib/api-service')
       const data = await getAllReports()
       console.log("Fetched reports data:", data)
+      
+      // Debug log to check status values
+      if (data && data.length > 0) {
+        console.log("Report status values:", data.map((report: Report) => ({ id: report.id, status: report.status })))
+      }
+      
       setReports(data)
     } catch (error) {
       console.error("Failed to fetch reports:", error)
@@ -107,6 +113,7 @@ export default function ReportsPage() {
       case 'processing':
         return 'bg-blue-100 text-blue-800'
       case 'complete':
+      case 'completed':
         return 'bg-green-100 text-green-800'
       case 'failed':
         return 'bg-red-100 text-red-800'
@@ -191,7 +198,8 @@ export default function ReportsPage() {
                       </div>
                     )}
                     <div className="mt-4 flex justify-end">
-                      {report.status === "complete" && (
+                      {/* Always show View Report button unless the report is processing or failed */}
+                      {report.status !== "processing" && report.status !== "failed" && (
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -213,6 +221,14 @@ export default function ReportsPage() {
           )}
         </div>
       </div>
+      
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        reportId={selectedReportId}
+        interviewId={selectedInterviewId}
+      />
     </div>
   )
 }

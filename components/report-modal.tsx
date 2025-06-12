@@ -16,14 +16,18 @@ interface ReportModalProps {
 
 interface Report {
   id: number
-  content: string
-  summary: string
-  strengths: string[]
-  weaknesses: string[]
-  recommendation: string
-  score: number
+  content: any[] | string | null
+  summary: string | null
+  strengths: any[] | null
+  weaknesses: any[] | null
+  recommendation: string | null
+  score: number | null
   status: string
-  created_at: string
+  created_at: string | null
+  candidate_name?: string
+  job_title?: string
+  duration?: string
+  error_message?: string
 }
 
 export function ReportModal({ isOpen, onClose, reportId, interviewId }: ReportModalProps) {
@@ -64,10 +68,16 @@ export function ReportModal({ isOpen, onClose, reportId, interviewId }: ReportMo
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-3xl max-h-[80vh] overflow-y-auto" 
+        aria-describedby="report-content-description"
+      >
         <DialogHeader>
           <DialogTitle>Interview Report</DialogTitle>
         </DialogHeader>
+        <div id="report-content-description" className="sr-only">
+          Detailed interview report including summary, strengths, weaknesses, recommendation, and score.
+        </div>
         
         {isLoading ? (
           <div className="flex items-center justify-center p-8">
@@ -82,55 +92,66 @@ export function ReportModal({ isOpen, onClose, reportId, interviewId }: ReportMo
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold">Summary</h3>
-              <p className="mt-2 text-gray-700">{report.summary}</p>
+              <p className="mt-2 text-gray-700">
+                {typeof report.summary === 'string' ? report.summary : JSON.stringify(report.summary)}
+              </p>
             </div>
             
             <div>
               <h3 className="text-lg font-semibold">Strengths</h3>
               <ul className="mt-2 list-disc pl-5 space-y-1">
-                {report.strengths.map((strength, index) => (
-                  <li key={index} className="text-gray-700">{strength}</li>
-                ))}
+                {Array.isArray(report.strengths) && report.strengths.length > 0 ? (
+                  report.strengths.map((strength, index) => (
+                    <li key={index} className="text-gray-700">
+                      {typeof strength === 'string' ? strength : JSON.stringify(strength)}
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-gray-700">No specific strengths identified</li>
+                )}
               </ul>
             </div>
             
             <div>
               <h3 className="text-lg font-semibold">Areas for Improvement</h3>
               <ul className="mt-2 list-disc pl-5 space-y-1">
-                {report.weaknesses.map((weakness, index) => (
-                  <li key={index} className="text-gray-700">{weakness}</li>
-                ))}
+                {Array.isArray(report.weaknesses) && report.weaknesses.length > 0 ? (
+                  report.weaknesses.map((weakness, index) => (
+                    <li key={index} className="text-gray-700">
+                      {typeof weakness === 'string' ? weakness : JSON.stringify(weakness)}
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-gray-700">No specific areas for improvement identified</li>
+                )}
               </ul>
             </div>
             
             <div>
               <h3 className="text-lg font-semibold">Recommendation</h3>
-              <p className="mt-2 text-gray-700">{report.recommendation}</p>
+              <p className="mt-2 text-gray-700">
+                {typeof report.recommendation === 'string' ? report.recommendation : JSON.stringify(report.recommendation)}
+              </p>
             </div>
             
             <div>
               <h3 className="text-lg font-semibold">Score</h3>
               <div className="mt-2 flex items-center">
-                <div className="text-2xl font-bold">{report.score}/100</div>
+                <div className="text-2xl font-bold">{report.score ?? 0}/100</div>
                 <div className="ml-4 h-2 w-40 bg-gray-200 rounded-full overflow-hidden">
                   <div 
                     className={`h-full ${
-                      report.score >= 80 ? 'bg-green-500' : 
-                      report.score >= 60 ? 'bg-yellow-500' : 
+                      (report.score ?? 0) >= 80 ? 'bg-green-500' : 
+                      (report.score ?? 0) >= 60 ? 'bg-yellow-500' : 
                       'bg-red-500'
                     }`} 
-                    style={{ width: `${report.score}%` }}
+                    style={{ width: `${report.score ?? 0}%` }}
                   />
                 </div>
               </div>
             </div>
             
-            <div>
-              <h3 className="text-lg font-semibold">Full Transcript Analysis</h3>
-              <div className="mt-2 p-4 bg-gray-50 rounded-md text-sm whitespace-pre-wrap">
-                {report.content}
-              </div>
-            </div>
+            {/* Full Transcript Analysis section removed as requested */}
           </div>
         ) : (
           <div className="p-4 text-gray-500">

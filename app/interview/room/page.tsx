@@ -31,6 +31,7 @@ import {
   MessageSquareText,
   Users,
   X,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -114,15 +115,20 @@ export default function InterviewRoomPage() {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  const [isStarting, setIsStarting] = useState(false);
+
   const handleStartInterview = async () => {
-    // Call startConversation which will trigger permission request
-    await startConversation({
-      jobOffer: jobTitle || "Frontend Developer", // Fallback if not available
-      fullName: user?.full_name || "",
-    });
-    
-    // If permission has been granted, start the interview
-    if (permissionGranted) {
+    try {
+      // Show loading state while requesting permissions
+      setIsStarting(true);
+      
+      // Call startConversation which will trigger browser permission request
+      await startConversation({
+        jobOffer: jobTitle || "Frontend Developer", // Fallback if not available
+        fullName: user?.full_name || "",
+      });
+      
+      // Start the interview immediately after permission is handled
       setInterviewStarted(true);
       
       // Start the timer
@@ -130,8 +136,12 @@ export default function InterviewRoomPage() {
         setCurrentTime(prev => prev + 1);
       }, 1000);
       
-      // Store the timer ID to clear it later
-      return () => clearInterval(timer);
+      return () => clearInterval(timer); // Clean up timer when component unmounts
+    } catch (error) {
+      console.error('Error starting interview:', error);
+      // Use the error state from useConversation hook
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -334,34 +344,7 @@ export default function InterviewRoomPage() {
 
               {/* Video conference area */}
               <div className="flex-1 bg-black/5 rounded-xl overflow-hidden relative flex items-center justify-center">
-                {permissionRequested ? (
-                  <div className="text-center p-8 max-w-md mx-auto">
-                    <div className="mb-6">
-                      <div className="mx-auto bg-primary/10 w-24 h-24 rounded-full flex items-center justify-center mb-4">
-                        <Mic className="h-12 w-12 text-primary" />
-                      </div>
-                      <h2 className="text-xl font-medium">Interview Permission</h2>
-                      <p className="text-muted-foreground mt-2 mb-6">
-                        This interview will use ElevenLabs AI for transcription. Microphone access is optional but recommended for the best experience.
-                      </p>
-                      <Alert className="mb-4">
-                        <Info className="h-4 w-4" />
-                        <AlertTitle>Important</AlertTitle>
-                        <AlertDescription>
-                          You can proceed with the interview even if you don't grant microphone access.
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-                    <div className="flex gap-3 justify-center">
-                      <Button variant="outline" onClick={denyPermission}>
-                        Cancel
-                      </Button>
-                      <Button onClick={grantPermission}>
-                        Continue to Interview
-                      </Button>
-                    </div>
-                  </div>
-                ) : !interviewStarted ? (
+                {!interviewStarted ? (
                   <div className="text-center p-8">
                     <div className="mb-6">
                       <div className="mx-auto bg-primary/10 w-24 h-24 rounded-full flex items-center justify-center mb-4">
@@ -371,9 +354,27 @@ export default function InterviewRoomPage() {
                       <p className="text-muted-foreground mt-2 mb-6">
                         You'll be connected with an AI interviewer for your {jobTitle || "Job"} position
                       </p>
+                      <Alert className="mb-4">
+                        <Info className="h-4 w-4" />
+                        <AlertTitle>Microphone Access</AlertTitle>
+                        <AlertDescription>
+                          Your browser will ask for microphone access. This is optional but recommended for the best experience.
+                        </AlertDescription>
+                      </Alert>
                     </div>
-                    <Button size="lg" onClick={handleStartInterview}>
-                      Start Interview
+                    <Button 
+                      size="lg" 
+                      onClick={handleStartInterview} 
+                      disabled={isStarting}
+                    >
+                      {isStarting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Starting...
+                        </>
+                      ) : (
+                        'Start Interview'
+                      )}
                     </Button>
                   </div>
                 ) : (

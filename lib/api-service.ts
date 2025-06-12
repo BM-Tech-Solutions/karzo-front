@@ -611,11 +611,11 @@ export async function generateReportFromTranscript(interviewId: number, conversa
     // Get the ElevenLabs API key from localStorage or environment
     const elevenlabsApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || 
                             localStorage.getItem('ELEVENLABS_API_KEY') || 
-                            "sk_f2f560187abc8627a78b612514e044c1b423594de4aa1060";
+                            "sk_ea6029e786262953f2b36eeb63ab1d1908470c0e48a2f3d0";
 
     // Use the company endpoint for generating reports
     const endpoint = companyToken 
-      ? `${API_URL}/api/company/reports/generate` 
+      ? `${API_URL}/api/company/guest-interviews/${interviewId}/generate-report` 
       : `${API_URL}/api/transcript/generate-report`;
 
     const response = await fetch(endpoint, {

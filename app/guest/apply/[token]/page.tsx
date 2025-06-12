@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { Header } from "@/components/header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -172,7 +171,6 @@ export default function GuestApplyPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col">
-        <Header />
         <main className="flex-1 container py-8 flex items-center justify-center">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
@@ -184,9 +182,11 @@ export default function GuestApplyPage() {
   }
   
   if (error || !invitation) {
+    // Check if this is an "Invitation is accepted" error
+    const isAcceptedError = error?.includes("Invitation is accepted");
+    
     return (
       <div className="flex min-h-screen flex-col">
-        <Header />
         <main className="flex-1 container py-8">
           <div className="max-w-2xl mx-auto">
             <Alert variant="destructive" className="mb-6">
@@ -196,7 +196,9 @@ export default function GuestApplyPage() {
                 {error || "Invitation not found or has expired"}
               </AlertDescription>
             </Alert>
-            <Button onClick={() => router.push("/")}>Return to Home</Button>
+            {!isAcceptedError && (
+              <Button onClick={() => router.push("/")}>Return to Home</Button>
+            )}
           </div>
         </main>
       </div>
@@ -206,19 +208,23 @@ export default function GuestApplyPage() {
   // Check if invitation has expired
   const isExpired = new Date(invitation.expires_at) < new Date()
   if (isExpired || invitation.status !== "pending") {
+    // Don't show return button for already used invitations
+    const isAlreadyUsed = invitation.status !== "pending";
+    
     return (
       <div className="flex min-h-screen flex-col">
-        <Header />
         <main className="flex-1 container py-8">
           <div className="max-w-2xl mx-auto">
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Invitation Expired</AlertTitle>
+              <AlertTitle>{isAlreadyUsed ? "Invitation Error" : "Invitation Expired"}</AlertTitle>
               <AlertDescription>
-                This invitation has expired or has already been used.
+                {isAlreadyUsed ? "This invitation has already been used." : "This invitation has expired."}
               </AlertDescription>
             </Alert>
-            <Button onClick={() => router.push("/")}>Return to Home</Button>
+            {!isAlreadyUsed && (
+              <Button onClick={() => router.push("/")}>Return to Home</Button>
+            )}
           </div>
         </main>
       </div>
@@ -227,7 +233,6 @@ export default function GuestApplyPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header />
       <main className="flex-1 container py-8">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-3xl font-bold tracking-tight mb-6">Apply for Position</h1>

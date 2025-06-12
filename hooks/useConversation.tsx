@@ -61,43 +61,29 @@ export const useConversation = () => {
     }
   }, [isConnected, isMuted]);
 
-  // Request user permission to start interview
-  const requestPermission = () => {
-    setPermissionRequested(true);
-  };
-
-  // User has granted permission to proceed with interview
-  const grantPermission = () => {
-    setPermissionGranted(true);
-    setPermissionRequested(false);
-  };
-
-  // User has denied permission to proceed with interview
-  const denyPermission = () => {
-    setPermissionRequested(false);
-    setError("Interview cancelled by user");
-  };
+  // These functions are no longer needed with the simplified flow
+  // but kept for backward compatibility
+  const requestPermission = () => {};
+  const grantPermission = () => {};
+  const denyPermission = () => {};
 
   const startConversation = async (formData: FormData) => {
     try {
-      // First request user permission
-      if (!permissionGranted) {
-        requestPermission();
-        return; // Wait for user to grant permission
-      }
-      
-      setConnectionStatus(translations.connectionStatus.connecting);
       setError(null);
-
-      // Try to request audio permissions, but continue even if not granted
+      
+      // Request browser microphone permission first
       try {
+        // This will trigger the browser permission dialog
         await navigator.mediaDevices.getUserMedia({ audio: true });
         console.log("Microphone access granted");
+        setPermissionGranted(true);
       } catch (err) {
-        console.log("Microphone access not granted, continuing without audio input");
-        // Set muted state since we don't have microphone access
+        console.log("Microphone access not granted");
         setIsMuted(true);
       }
+      
+      // Now that permission has been handled, start connecting
+      setConnectionStatus(translations.connectionStatus.connecting);
 
       // Get agentId from environment variable with fallback
       const agentId = process.env.NEXT_PUBLIC_AGENT_ID || "agent_01jxfhf5f5fr5aakr4t89w89rc";
@@ -114,7 +100,7 @@ export const useConversation = () => {
       
       // Hard-code the API key as a last resort (only for debugging)
       if (!apiKey) {
-        apiKey = "sk_7285d9e3401a8364817514d44289c9acad85e3ddeb1e0887";
+        apiKey = "sk_ea6029e786262953f2b36eeb63ab1d1908470c0e48a2f3d0";
         console.log("Using hardcoded API key for starting conversation");
       }
       
@@ -206,7 +192,7 @@ export const useConversation = () => {
       
       // Hard-code the API key as a last resort (only for debugging)
       if (!apiKey) {
-        apiKey = "sk_f2f560187abc8627a78b612514e044c1b423594de4aa1060";
+        apiKey = "sk_ea6029e786262953f2b36eeb63ab1d1908470c0e48a2f3d0";
         console.log("Using hardcoded API key for testing");
       }
       
