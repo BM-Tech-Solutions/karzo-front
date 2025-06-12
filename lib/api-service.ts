@@ -578,13 +578,32 @@ export async function deleteCandidate(id: number): Promise<void> {
 
 /**
  * Generate a report from an ElevenLabs transcript
- * @param reportId - The ID of the report to generate
+ * @param interviewId - The ID of the interview to generate a report for
  * @param conversationId - The ElevenLabs conversation ID
  * @returns The response message
  */
-export async function generateReportFromTranscript(reportId: number, conversationId: string): Promise<{message: string, report_id: number}> {
+export async function generateReportFromTranscript(interviewId: number, conversationId: string): Promise<{message: string, report_id: number}> {
   try {
-    const token = localStorage.getItem('karzo_token');
+    console.log("=== REPORT GENERATION REQUEST ===");
+    console.log(`Interview ID: ${interviewId}`);
+    console.log(`Conversation ID being sent to backend: ${conversationId}`);
+    
+    // Compare with the stored debug conversation ID
+    const storedConversationId = localStorage.getItem('debug_conversation_id');
+    console.log(`Original conversation ID from localStorage: ${storedConversationId}`);
+    
+    if (conversationId !== storedConversationId) {
+      console.warn("⚠️ CONVERSATION ID MISMATCH! The ID being sent to generate the report is different from the original conversation ID");
+    } else {
+      console.log("✓ Conversation ID matches the original ID from the interview session");
+    }
+    console.log("================================");
+    
+    // Try to get company token first, then fall back to user token if needed
+    const companyToken = localStorage.getItem('karzo_company_token');
+    const userToken = localStorage.getItem('karzo_token');
+    const token = companyToken || userToken;
+    
     if (!token) {
       throw new Error('No authentication token found');
     }
@@ -592,16 +611,21 @@ export async function generateReportFromTranscript(reportId: number, conversatio
     // Get the ElevenLabs API key from localStorage or environment
     const elevenlabsApiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || 
                             localStorage.getItem('ELEVENLABS_API_KEY') || 
-                            "sk_7285d9e3401a8364817514d44289c9acad85e3ddeb1e0887";
+                            "sk_ea6029e786262953f2b36eeb63ab1d1908470c0e48a2f3d0";
 
-    const response = await fetch(`http://localhost:8000/api/transcript/generate-report`, {
+    // Use the company endpoint for generating reports
+    const endpoint = companyToken 
+      ? `${API_URL}/api/company/guest-interviews/${interviewId}/generate-report` 
+      : `${API_URL}/api/transcript/generate-report`;
+
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        report_id: reportId,
+        interview_id: interviewId,
         conversation_id: conversationId,
         elevenlabs_api_key: elevenlabsApiKey
       })
@@ -624,14 +648,121 @@ export async function generateReportFromTranscript(reportId: number, conversatio
  * @param reportId - The ID of the report to check
  * @returns The report status
  */
-export async function checkReportStatus(reportId: number): Promise<{status: string}> {
+/**
+ * Get all reports for a company
+ */
+export async function getAllReports() {
   try {
-    const token = localStorage.getItem('karzo_token');
+    const companyToken = localStorage.getItem('karzo_company_token');
+    
+    if (!companyToken) {
+      throw new Error('No company authentication token found');
+    }
+
+    const response = await fetch(`${API_URL}/api/company/reports/`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${companyToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to fetch reports');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to fetch reports:', error);
+    throw error;
+  }
+}
+
+/**
+ * Mark a guest interview as completed (sets status to 'processing')
+ */
+export async function completeGuestInterview(interviewId: number, conversationId?: string): Promise<{status: string}> {
+  try {
+    // Get the conversation ID from localStorage if not provided
+    const actualConversationId = conversationId || localStorage.getItem('debug_conversation_id');
+    console.log(`Completing guest interview with conversation ID: ${actualConversationId}`);
+    
+    // No authentication token needed for this endpoint since it's called from the guest interview flow
+    const response = await fetch(`${API_URL}/api/company/guest-interviews/${interviewId}/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        conversation_id: actualConversationId
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to mark interview as completed');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to mark interview as completed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Mark a guest interview as done after report generation
+ */
+export async function markGuestInterviewDone(interviewId: number): Promise<{status: string}> {
+  try {
+    // Get the company token for authentication
+    const companyToken = localStorage.getItem('karzo_company_token');
+    
+    if (!companyToken) {
+      throw new Error('No company authentication token found');
+    }
+
+    const response = await fetch(`${API_URL}/api/company/guest-interviews/${interviewId}/mark-done`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${companyToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to mark interview as done');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to mark interview as done:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check the status of a report
+ */
+export async function checkReportStatus(reportId: number): Promise<{status: string, error_message?: string}> {
+  try {
+    // Try to get company token first, then fall back to user token if needed
+    const companyToken = localStorage.getItem('karzo_company_token');
+    const userToken = localStorage.getItem('karzo_token');
+    const token = companyToken || userToken;
+    
     if (!token) {
       throw new Error('No authentication token found');
     }
 
-    const response = await fetch(`http://localhost:8000/api/transcript/check-report-status/${reportId}`, {
+    // Use the company endpoint if using company token
+    const endpoint = companyToken 
+      ? `${API_URL}/api/company/reports/${reportId}/status` 
+      : `${API_URL}/api/transcript/check-report-status/${reportId}`;
+
+    const response = await fetch(endpoint, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

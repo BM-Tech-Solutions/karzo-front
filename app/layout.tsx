@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import "./globals.css"
 import { ThemeProvider } from "next-themes"
 import { AuthProvider } from "@/lib/auth-context"
+import { CompanyAuthProvider } from "@/lib/company-auth-context"
 
 export const metadata: Metadata = {
   title: "Karzo - AI-Powered Interview Platform",
@@ -15,7 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <AuthProvider>
-            {children}
+            <CompanyAuthProvider>
+              {children}
+            </CompanyAuthProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

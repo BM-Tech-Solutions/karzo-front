@@ -15,17 +15,14 @@ export function MainNav() {
   }, [])
 
   // Define routes with their visibility conditions
-  const routes = [
-    {
-      href: "/",
-      label: "Home",
-      active: pathname === "/",
-    },
-    {
-      href: "/jobs",
-      label: "Jobs",
-      active: pathname === "/jobs" || pathname.startsWith("/jobs/"),
-    }
+  interface Route {
+    href: string;
+    label: string;
+    active: boolean;
+  }
+  
+  const routes: Route[] = [
+    // Home and Jobs links removed as requested
   ]
 
   // Don't render navigation items until client-side
