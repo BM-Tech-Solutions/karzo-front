@@ -13,6 +13,9 @@ interface ConversationInfo {
 interface FormData {
   jobOffer: string;
   fullName: string;
+  candidateSummary?: string;
+  companyName?: string;
+  jobOfferQuestions?: string[];
 }
 
 interface SessionInfo {
@@ -125,7 +128,10 @@ export const useConversation = () => {
         agentId: agentId,
         dynamicVariables: {
           job_offer: formData.jobOffer,
-          user_name: formData.fullName
+          user_name: formData.fullName,
+          candidate_summary: formData.candidateSummary || '',
+          company_name: formData.companyName || '',
+          joboffer_questions: formData.jobOfferQuestions && Array.isArray(formData.jobOfferQuestions) && formData.jobOfferQuestions.length > 0 ? JSON.stringify(formData.jobOfferQuestions) : '[]'
         },
         onConnect: () => {
           setConnectionStatus(translations.connectionStatus.connected);
@@ -138,7 +144,7 @@ export const useConversation = () => {
             console.log('Session ended:', sessionInfo);
           }
         },
-        onError: (message) => {
+        onError: (message: any) => {
           console.error('Error:', message);
           setConnectionStatus(`${translations.connectionStatus.error}: ${message}`);
           setIsConnected(false);

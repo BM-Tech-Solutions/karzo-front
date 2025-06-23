@@ -63,6 +63,8 @@ export default function InterviewRoomPage() {
   const [tipsPanelExpanded, setTipsPanelExpanded] = useState(false)
   const [interviewStarted, setInterviewStarted] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
+  const [startTime, setStartTime] = useState<number | null>(null)
+  // Using error from useConversation hook
   const [showChat, setShowChat] = useState(false)
   const [showParticipants, setShowParticipants] = useState(false)
 
@@ -75,7 +77,92 @@ export default function InterviewRoomPage() {
   const [jobTitle, setJobTitle] = useState<string | null>(null)
   const [company, setCompany] = useState<string | null>(null)
   const [jobRequirements, setJobRequirements] = useState<string[]>([])
+  const [candidateSummary, setCandidateSummary] = useState<string>('')
+  const [guestInterviewId, setGuestInterviewId] = useState<string | null>(null)
   
+  // Add this function to fetch guest candidate summary
+  const fetchGuestCandidateSummary = async (interviewId: string) => {
+    try {
+      // First check if we already have a candidate summary in localStorage
+      const storedSummary = localStorage.getItem('candidate_summary');
+      if (storedSummary) {
+        console.log(`Using stored candidate summary from localStorage: ${storedSummary.substring(0, 50)}...`);
+        setCandidateSummary(storedSummary);
+        return;
+      }
+      
+      console.log(`Fetching candidate summary for interview ID: ${interviewId}`);
+      
+      // Try to fetch from backend API
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/company/guest-interviews/${interviewId}/summary`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+        
+        console.log(`Candidate summary fetch response status: ${response.status}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Candidate summary response data:', data);
+          
+          if (data.candidate_summary) {
+            console.log(`Setting candidate summary from API: ${data.candidate_summary.substring(0, 50)}...`);
+            setCandidateSummary(data.candidate_summary);
+            localStorage.setItem('candidate_summary', data.candidate_summary);
+            
+            // Check for company name in the response
+            if (data.company_name) {
+              console.log(`Setting company name from API: ${data.company_name}`);
+              setCompany(data.company_name);
+              localStorage.setItem('interview_company', data.company_name);
+            }
+            
+            // Check for job offer questions in the response
+            if (data.joboffer_questions && Array.isArray(data.joboffer_questions)) {
+              console.log(`Setting ${data.joboffer_questions.length} job offer questions from API`);
+              localStorage.setItem('job_offer_questions', JSON.stringify(data.joboffer_questions));
+            }
+            
+            return;
+          }
+        } else {
+          console.error('Failed to fetch candidate summary, status:', response.status);
+          try {
+            const errorData = await response.json();
+            console.error('Error details:', errorData);
+          } catch (e) {
+            console.error('Could not parse error response');
+          }
+        }
+      } catch (apiError) {
+        console.error('API error fetching candidate summary:', apiError);
+      }
+      
+      // If we get here, both localStorage and API fetch failed
+      // Use the guest candidate name to create a fallback summary
+      const guestName = localStorage.getItem('guest_candidate_name') || 'Candidate';
+      const jobTitle = localStorage.getItem('interview_job_title') || 'the position';
+      const company = localStorage.getItem('interview_company') || 'the company';
+      
+      const fallbackSummary = `${guestName} is a candidate for ${jobTitle} at ${company}. The candidate has relevant skills and experience for this position.`;
+      
+      console.log(`Using fallback candidate summary: ${fallbackSummary}`);
+      setCandidateSummary(fallbackSummary);
+      localStorage.setItem('candidate_summary', fallbackSummary);
+    } catch (error) {
+      console.error('Unhandled error in fetchGuestCandidateSummary:', error);
+      
+      // Ultimate fallback
+      const basicFallback = "Candidate has applied for this position and has relevant skills and experience.";
+      setCandidateSummary(basicFallback);
+      localStorage.setItem('candidate_summary', basicFallback);
+    }
+  };
+
   // Add this useEffect to load job data from localStorage and clear any existing interview data
   useEffect(() => {
     // Clear any existing interview ID to ensure we start fresh
@@ -86,6 +173,13 @@ export default function InterviewRoomPage() {
     const storedJobTitle = localStorage.getItem('interview_job_title')
     const storedCompany = localStorage.getItem('interview_company')
     const storedRequirements = localStorage.getItem('interview_job_requirements')
+    const storedGuestInterviewId = localStorage.getItem('guest_interview_id')
+    
+    if (storedGuestInterviewId) {
+      setGuestInterviewId(storedGuestInterviewId)
+      // Fetch candidate summary for guest interviews
+      fetchGuestCandidateSummary(storedGuestInterviewId)
+    }
     
     if (storedJobId) {
       setJobId(storedJobId)
@@ -119,13 +213,95 @@ export default function InterviewRoomPage() {
 
   const handleStartInterview = async () => {
     try {
-      // Show loading state while requesting permissions
       setIsStarting(true);
+      // Error is managed by the useConversation hook
       
-      // Call startConversation which will trigger browser permission request
+      // Ensure we have a candidate summary
+      let summary = candidateSummary;
+      if (!summary) {
+        // Try to get from localStorage first
+        summary = localStorage.getItem('candidate_summary') || '';
+        
+        // If still no summary, create a fallback
+        if (!summary) {
+          const guestName = localStorage.getItem('guest_candidate_name') || 'Candidate';
+          const jobTitle = localStorage.getItem('interview_job_title') || 'the position';
+          const company = localStorage.getItem('interview_company') || 'the company';
+          
+          summary = `${guestName} is a candidate for ${jobTitle} at ${company}. The candidate has relevant skills and experience for this position.`;
+          console.log(`Using fallback summary in handleStartInterview: ${summary}`);
+        }
+      }
+      
+      // Get the guest candidate name
+      const guestName = localStorage.getItem('guest_candidate_name') || 'Candidate';
+      
+      // Get job offer questions if available
+      let jobOfferQuestions: string[] = [];
+      try {
+        console.log('Checking localStorage for job_offer_questions...');
+        const storedQuestions = localStorage.getItem('job_offer_questions');
+        console.log('Raw stored questions:', storedQuestions);
+        
+        if (storedQuestions) {
+          jobOfferQuestions = JSON.parse(storedQuestions);
+          console.log('Parsed job offer questions:', jobOfferQuestions);
+        } else {
+          console.log('No job offer questions found in localStorage');
+          
+          // Try to fetch job questions directly before starting the interview
+          try {
+            // Use the jobId from state or a fallback
+            const currentJobId = jobId || ''; // Default to job ID 2 if not available
+            console.log(`Attempting to fetch job questions for job ID ${currentJobId}...`);
+            const questionsResponse = await fetch(`/api/job-questions?job_offer_id=${currentJobId}`);
+            console.log('Questions API response status:', questionsResponse.status);
+            
+            if (questionsResponse.ok) {
+              const questionsData = await questionsResponse.json();
+              console.log('Questions API response data:', questionsData);
+              
+              if (Array.isArray(questionsData) && questionsData.length > 0) {
+                // Extract just the question text from each question object
+                jobOfferQuestions = questionsData.map(q => q.question || q);
+                console.log('Extracted job offer questions:', jobOfferQuestions);
+                localStorage.setItem('job_offer_questions', JSON.stringify(jobOfferQuestions));
+              }
+            }
+          } catch (questionsError) {
+            console.error('Error fetching job questions at interview start:', questionsError);
+          }
+          
+          // If still no questions, try to use hardcoded questions for this specific job
+          if (jobOfferQuestions.length === 0 && jobTitle === 'Generative AI Engineer') {
+            console.log('Using hardcoded questions for Generative AI Engineer position');
+            jobOfferQuestions = [
+              'Prompt engineering',
+              'LangChain',
+              'fine-tuning an LLM vs. using RAG'
+            ];
+            localStorage.setItem('job_offer_questions', JSON.stringify(jobOfferQuestions));
+          }
+        }
+      } catch (e) {
+        console.error('Error handling job offer questions:', e);
+      }
+      
+      console.log('Starting interview with data:', {
+        job_offer: jobTitle || 'Frontend Developer',
+        user_name: guestName,
+        company_name: company || 'Company',
+        candidate_summary: summary.substring(0, 50) + '...', // Log truncated summary for debugging
+        joboffer_questions: jobOfferQuestions.length > 0 ? `${jobOfferQuestions.length} questions` : 'No questions'
+      });
+      
+      // Start the conversation with ElevenLabs
       await startConversation({
-        jobOffer: jobTitle || "Frontend Developer", // Fallback if not available
-        fullName: user?.full_name || "",
+        jobOffer: jobTitle || 'Frontend Developer', // Fallback if not available
+        fullName: guestName,
+        candidateSummary: summary,
+        companyName: company || 'Company',
+        jobOfferQuestions: jobOfferQuestions
       });
       
       // Start the interview immediately after permission is handled
@@ -133,14 +309,14 @@ export default function InterviewRoomPage() {
       
       // Start the timer
       const timer = setInterval(() => {
-        setCurrentTime(prev => prev + 1);
+        setCurrentTime((prev: number) => prev + 1);
       }, 1000);
+      
+      setStartTime(Date.now());
       
       return () => clearInterval(timer); // Clean up timer when component unmounts
     } catch (error) {
       console.error('Error starting interview:', error);
-      // Use the error state from useConversation hook
-    } finally {
       setIsStarting(false);
     }
   };
@@ -151,20 +327,49 @@ export default function InterviewRoomPage() {
       // Get the authentication token from localStorage
       const token = localStorage.getItem('karzo_token')
       
-      const response = await fetch(`${API_BASE_URL}/api/jobs/${id}`, {
+      // First try to fetch job offer details
+      const jobOfferResponse = await fetch(`${API_BASE_URL}/api/v1/job-offers/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       })
-      if (response.ok) {
-        const jobData = await response.json()
+      if (jobOfferResponse.ok) {
+        const jobData = await jobOfferResponse.json()
         setJobTitle(jobData.title)
         setCompany(jobData.company)
         
         // Store these values for future use
         localStorage.setItem('interview_job_title', jobData.title)
         localStorage.setItem('interview_company', jobData.company)
+        
+        // Store job requirements/questions if available
+        if (jobData.requirements && Array.isArray(jobData.requirements)) {
+          setJobRequirements(jobData.requirements)
+          localStorage.setItem('job_requirements', JSON.stringify(jobData.requirements))
+        }
+        
+        // Store job offer questions if available
+        if (jobData.questions && Array.isArray(jobData.questions)) {
+          localStorage.setItem('job_offer_questions', JSON.stringify(jobData.questions))
+          console.log(`Stored ${jobData.questions.length} job offer questions in localStorage`)
+        } else {
+          // Try to fetch job questions directly from our new API endpoint
+          try {
+            const questionsResponse = await fetch(`/api/job-questions?job_offer_id=${id}`)
+            if (questionsResponse.ok) {
+              const questionsData = await questionsResponse.json()
+              if (Array.isArray(questionsData)) {
+                // Extract just the question text from each question object
+                const questions = questionsData.map(q => q.question || q)
+                localStorage.setItem('job_offer_questions', JSON.stringify(questions))
+                console.log(`Stored ${questions.length} job offer questions from API endpoint`)
+              }
+            }
+          } catch (questionsError) {
+            console.error('Error fetching job questions:', questionsError)
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching job details:', error)
@@ -382,43 +587,56 @@ export default function InterviewRoomPage() {
                     {/* Main video feed */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="relative w-full h-full max-w-4xl max-h-[70vh]">
-                        {/* AI Interviewer video placeholder */}
+                        {/* User's video (main view) */}
                         <div className="absolute inset-0 bg-gradient-to-b from-slate-700 to-slate-900 rounded-lg overflow-hidden flex items-center justify-center">
-                          <Avatar className="h-32 w-32">
-                            <AvatarImage src="/placeholder.svg?height=128&width=128" alt="AI Interviewer" />
-                            <AvatarFallback className="text-4xl">AI</AvatarFallback>
-                          </Avatar>
-                          <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1 rounded-md text-white text-sm flex items-center">
-                            <span>AI Interviewer</span>
-                            {/* Audio level indicator */}
-                            <div className="ml-2 flex items-center gap-0.5">
-                              {[...Array(5)].map((_, i) => (
-                                <div
-                                  key={i}
-                                  className="w-0.5 h-3 bg-green-500 transition-all duration-100"
-                                  style={{
-                                    height: `${Math.min(12, Math.max(3, audioLevel * 12 * Math.random()))}px`,
-                                    opacity: audioLevel > i / 10 ? 1 : 0.3,
-                                  }}
-                                ></div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* User's video (small overlay) */}
-                        <div className="absolute bottom-4 right-4 w-48 h-36 bg-slate-800 rounded-lg overflow-hidden border-2 border-background shadow-lg">
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900">
+                          <div className="w-full h-full flex items-center justify-center">
                             {isCameraOff ? (
-                              <VideoOff className="h-8 w-8 text-muted" />
+                              <div className="flex flex-col items-center justify-center">
+                                <VideoOff className="h-16 w-16 text-muted mb-4" />
+                                <Button 
+                                  variant="outline" 
+                                  onClick={() => toggleCamera()}
+                                  className="bg-primary/20 hover:bg-primary/30"
+                                >
+                                  <Video className="h-4 w-4 mr-2" />
+                                  Enable Camera
+                                </Button>
+                              </div>
                             ) : (
-                              <Avatar className="h-16 w-16">
-                                <AvatarFallback>{user?.full_name?.charAt(0) || "U"}</AvatarFallback>
+                              <Avatar className="h-32 w-32">
+                                <AvatarFallback className="text-4xl">{user?.full_name?.charAt(0) || "U"}</AvatarFallback>
                               </Avatar>
                             )}
                           </div>
+                          <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1 rounded-md text-white text-sm flex items-center">
+                            <span>You {isMuted && "(Muted)"}</span>
+                            {!isMuted && (
+                              <div className="ml-2 flex items-center gap-0.5">
+                                {[...Array(5)].map((_, i) => (
+                                  <div
+                                    key={i}
+                                    className="w-0.5 h-3 bg-green-500 transition-all duration-100"
+                                    style={{
+                                      height: `${Math.min(12, Math.max(3, audioLevel * 12 * Math.random()))}px`,
+                                      opacity: audioLevel > i / 10 ? 1 : 0.3,
+                                    }}
+                                  ></div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* AI Interviewer video (small overlay) */}
+                        <div className="absolute bottom-4 right-4 w-48 h-36 bg-slate-800 rounded-lg overflow-hidden border-2 border-background shadow-lg">
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900">
+                            <Avatar className="h-16 w-16">
+                              <AvatarImage src="/karzo.png" alt="AI Interviewer" />
+                              <AvatarFallback className="text-lg">AI</AvatarFallback>
+                            </Avatar>
+                          </div>
                           <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-0.5 rounded text-white text-xs">
-                            You {isMuted && "(Muted)"}
+                            AI Interviewer
                           </div>
                         </div>
                       </div>
