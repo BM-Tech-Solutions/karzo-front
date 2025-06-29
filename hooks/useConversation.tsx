@@ -15,6 +15,10 @@ interface FormData {
   fullName: string;
   candidateSummary?: string;
   companyName?: string;
+  companySize?: string;
+  companySector?: string;
+  companyAbout?: string;
+  companyWebsite?: string;
   jobOfferQuestions?: string[];
 }
 
@@ -131,6 +135,10 @@ export const useConversation = () => {
           user_name: formData.fullName,
           candidate_summary: formData.candidateSummary || '',
           company_name: formData.companyName || '',
+          company_size: formData.companySize || '',
+          company_sector: formData.companySector || '',
+          company_about: formData.companyAbout || '',
+          company_website: formData.companyWebsite || '',
           joboffer_questions: formData.jobOfferQuestions && Array.isArray(formData.jobOfferQuestions) && formData.jobOfferQuestions.length > 0 ? JSON.stringify(formData.jobOfferQuestions) : '[]'
         },
         onConnect: () => {

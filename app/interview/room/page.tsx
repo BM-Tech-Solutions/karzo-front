@@ -287,24 +287,43 @@ export default function InterviewRoomPage() {
         console.error('Error handling job offer questions:', e);
       }
       
-      console.log('Starting interview with data:', {
-        job_offer: jobTitle || 'Frontend Developer',
-        user_name: guestName,
-        company_name: company || 'Company',
-        candidate_summary: summary.substring(0, 50) + '...', // Log truncated summary for debugging
-        joboffer_questions: jobOfferQuestions.length > 0 ? `${jobOfferQuestions.length} questions` : 'No questions'
-      });
+      // Get company name from localStorage
+      const companyName = localStorage.getItem('interview_company') || '';
       
+      // Fetch company details
+      const companyDetails = companyName ? await fetchCompanyDetails(companyName) : null;
+      
+      // Store company data in localStorage for the conversation hook to access
+      if (companyDetails) {
+        localStorage.setItem('company_size', companyDetails.size || '');
+        localStorage.setItem('company_sector', companyDetails.sector || '');
+        localStorage.setItem('company_about', companyDetails.about || '');
+        localStorage.setItem('company_website', companyDetails.website || '');
+      } else {
+        // Fallback to empty strings if company details not found
+        localStorage.setItem('company_size', '');
+        localStorage.setItem('company_sector', '');
+        localStorage.setItem('company_about', '');
+        localStorage.setItem('company_website', '');
+      }
+      
+      // Get form data for the conversation
+      const formData = {
+        jobOffer: jobTitle || '',
+        fullName: localStorage.getItem('guest_candidate_name') || 'Candidate',
+        candidateSummary: candidateSummary || '',
+        companyName: company || '',
+        companySize: localStorage.getItem('company_size') || '',
+        companySector: localStorage.getItem('company_sector') || '',
+        companyAbout: localStorage.getItem('company_about') || '',
+        companyWebsite: localStorage.getItem('company_website') || '',
+        jobOfferQuestions: JSON.parse(localStorage.getItem('job_offer_questions') || '[]')
+      };
+
       // Start the conversation with ElevenLabs
-      await startConversation({
-        jobOffer: jobTitle || 'Frontend Developer', // Fallback if not available
-        fullName: guestName,
-        candidateSummary: summary,
-        companyName: company || 'Company',
-        jobOfferQuestions: jobOfferQuestions
-      });
+      await startConversation(formData);
       
-      // Start the interview immediately after permission is handled
+      // Start the interview
       setInterviewStarted(true);
       
       // Start the timer
@@ -318,6 +337,29 @@ export default function InterviewRoomPage() {
     } catch (error) {
       console.error('Error starting interview:', error);
       setIsStarting(false);
+    }
+  };
+
+  // Function to fetch company details by name
+  const fetchCompanyDetails = async (companyName: string) => {
+    try {
+      // Use the same base URL as other API calls in the app
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(
+        `${apiUrl}/api/company/details?name=${encodeURIComponent(companyName)}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch company details');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching company details:', error);
+      return null;
     }
   };
 
