@@ -43,6 +43,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "date-fns": "latest",
+    "dotenv": "^17.2.0",
     "elevenlabs": "^1.59.0",
     "embla-carousel-react": "8.5.1",
     "i18next": "^25.2.0",

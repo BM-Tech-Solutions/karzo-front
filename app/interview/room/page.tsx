@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useConversation } from "@/hooks/useConversation"
 import { AuthProvider } from "@/lib/auth-context"
-import { mockJobs } from "@/lib/mock-data"
 import { API_BASE_URL } from "@/lib/config"
 import { completeGuestInterview } from "@/lib/api-service"
 
@@ -58,7 +57,9 @@ export default function InterviewRoomPage() {
     permissionRequested,
     permissionGranted,
     grantPermission,
-    denyPermission
+    denyPermission,
+    cameraStream,
+    sessionEnded
   } = useConversation()
   const [tipsPanelExpanded, setTipsPanelExpanded] = useState(false)
   const [interviewStarted, setInterviewStarted] = useState(false)
@@ -67,10 +68,6 @@ export default function InterviewRoomPage() {
   // Using error from useConversation hook
   const [showChat, setShowChat] = useState(false)
   const [showParticipants, setShowParticipants] = useState(false)
-
-  // Mock job data
-  // Replace the mock job data with state variables
-  // const job = mockJobs[0]; // Remove this line
   
   // Add these state variables to your component if not already there
   const [jobId, setJobId] = useState<string | null>(null)
@@ -79,6 +76,68 @@ export default function InterviewRoomPage() {
   const [jobRequirements, setJobRequirements] = useState<string[]>([])
   const [candidateSummary, setCandidateSummary] = useState<string>('')
   const [guestInterviewId, setGuestInterviewId] = useState<string | null>(null)
+  
+  // Define handleEndInterview function using useCallback to prevent infinite loops
+  const handleEndInterview = useCallback(async () => {
+    await stopConversation()
+    
+    // Get the conversation ID from localStorage for debugging
+    const conversationId = localStorage.getItem('debug_conversation_id')
+    console.log("=== INTERVIEW COMPLETION ===")
+    console.log(`Conversation ID at interview completion: ${conversationId}`)
+    console.log("==============================")
+    
+    // Save interview data to the database
+    try {
+      // Check if this is a guest interview (no user or guest token in localStorage)
+      const isGuestInterview = !user && localStorage.getItem('guest_interview_id')
+      
+      if (isGuestInterview) {
+        // This is a guest interview, update its status to "passed"
+        const guestInterviewId = parseInt(localStorage.getItem('guest_interview_id') || '0')
+        
+        if (guestInterviewId) {
+          const conversationId = localStorage.getItem('debug_conversation_id') || undefined
+          console.log(`Marking guest interview ${guestInterviewId} as completed with conversation ID: ${conversationId}`)
+          try {
+            await completeGuestInterview(guestInterviewId, conversationId)
+            console.log(`Successfully marked guest interview ${guestInterviewId} as completed`)
+          } catch (error) {
+            console.error('Error marking guest interview as completed:', error)
+          }
+          
+          // Redirect to thank you page for guest users
+          router.push('/review/thank-you')
+        }
+      } else if (user && jobId) {
+        // This is a logged-in user interview
+        // Save the interview data and redirect to the review page
+        console.log(`Saving interview data for user ${user.id} and job ${jobId}`)
+        
+        // Redirect to review page for logged-in users
+        router.push('/review')
+      } else {
+        // Fallback redirect
+        router.push('/review/thank-you')
+      }
+    } catch (error) {
+      console.error('Error saving interview:', error)
+      // Still redirect to review page even if saving fails
+      router.push('/review')
+    }
+    
+    setInterviewStarted(false)
+  }, [stopConversation, router, user, jobId])
+  
+  // Effect to handle automatic navigation when session ends
+  useEffect(() => {
+    if (sessionEnded && interviewStarted) {
+      console.log("Session ended automatically, handling interview completion")
+      handleEndInterview()
+    }
+  }, [sessionEnded, interviewStarted, handleEndInterview])
+  
+  // State variables already defined above
   
   // Add this function to fetch guest candidate summary
   const fetchGuestCandidateSummary = async (interviewId: string) => {
@@ -310,7 +369,8 @@ export default function InterviewRoomPage() {
       // Get form data for the conversation
       const formData = {
         jobOffer: jobTitle || '',
-        fullName: localStorage.getItem('guest_candidate_name') || 'Candidate',
+        // Use user's full name if available, then try localStorage, then fallback to 'Candidate'
+        fullName: user?.full_name || localStorage.getItem('guest_candidate_name') || 'Candidate',
         candidateSummary: candidateSummary || '',
         companyName: company || '',
         companySize: localStorage.getItem('company_size') || '',
@@ -418,103 +478,7 @@ export default function InterviewRoomPage() {
     }
   }
   
-  // Modify your handleEndInterview function
-  const handleEndInterview = async () => {
-    await stopConversation()
-    
-    // Get the conversation ID from localStorage for debugging
-    const conversationId = localStorage.getItem('debug_conversation_id')
-    console.log("=== INTERVIEW COMPLETION ===")
-    console.log(`Conversation ID at interview completion: ${conversationId}`)
-    console.log("==============================")
-    
-    // Save interview data to the database
-    try {
-      // Check if this is a guest interview (no user or guest token in localStorage)
-      const isGuestInterview = !user && localStorage.getItem('guest_interview_id')
-      
-      if (isGuestInterview) {
-        // This is a guest interview, update its status to "passed"
-        const guestInterviewId = parseInt(localStorage.getItem('guest_interview_id') || '0')
-        
-        if (guestInterviewId) {
-          const conversationId = localStorage.getItem('debug_conversation_id') || undefined
-          console.log(`Marking guest interview ${guestInterviewId} as completed with conversation ID: ${conversationId}`)
-          try {
-            await completeGuestInterview(guestInterviewId, conversationId)
-            console.log(`Successfully marked guest interview ${guestInterviewId} as completed`)
-          } catch (error) {
-            console.error('Error marking guest interview as completed:', error)
-          }
-        }
-        
-        // Redirect to thank you page for guest interviews
-        router.push('/review/thank-you')
-        return
-      }
-      
-      // Regular interview flow for logged-in users
-      if (!user || !jobId) {
-        console.error('Missing user or job data')
-        router.push('/review/thank-you')
-        return
-      }
-      
-      // Get the authentication token from localStorage
-      const token = localStorage.getItem('karzo_token')
-      
-      // First, clear any existing interview ID to avoid conflicts
-      localStorage.removeItem('interview_id')
-      console.log('Cleared existing interview_id from localStorage')
-      
-      // Log user and job information
-      console.log('Creating interview with:', {
-        userId: user.id,
-        userName: user.full_name,
-        userRole: user.role,
-        jobId: jobId
-      })
-      
-      const interviewData = {
-        candidate_id: user.id,
-        job_id: parseInt(jobId),
-        date: new Date().toISOString(),
-        status: 'completed',
-        // You can add score and feedback later if available
-      }
-      
-      console.log('Interview request data:', JSON.stringify(interviewData, null, 2))
-      
-      const response = await fetch(`${API_BASE_URL}/api/interviews/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(interviewData),
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to save interview')
-      }
-      
-      // Get the interview ID from the response
-      const data = await response.json()
-      console.log('Created new interview with ID:', data.id)
-      
-      // Store interview ID for the review page
-      localStorage.setItem('interview_id', data.id.toString())
-      
-      // Redirect to thank you page
-      router.push('/review/thank-you')
-    } catch (error) {
-      console.error('Error saving interview:', error)
-      // Still redirect to review page even if saving fails
-      router.push('/review')
-    }
-    
-    setInterviewStarted(false)
-  }
+  // The handleEndInterview function is already defined above
 
   return (
     <AuthProvider>
@@ -645,9 +609,19 @@ export default function InterviewRoomPage() {
                                 </Button>
                               </div>
                             ) : (
-                              <Avatar className="h-32 w-32">
-                                <AvatarFallback className="text-4xl">{user?.full_name?.charAt(0) || "U"}</AvatarFallback>
-                              </Avatar>
+                              <div className="relative w-full h-full">
+                                <video 
+                                  ref={(videoElement) => {
+                                    if (videoElement && cameraStream && !videoElement.srcObject) {
+                                      videoElement.srcObject = cameraStream;
+                                      videoElement.play().catch(err => console.error("Error playing video:", err));
+                                    }
+                                  }}
+                                  className="w-full h-full object-cover rounded-lg"
+                                  muted
+                                  playsInline
+                                />
+                              </div>
                             )}
                           </div>
                           <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1 rounded-md text-white text-sm flex items-center">

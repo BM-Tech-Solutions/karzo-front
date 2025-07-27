@@ -46,7 +46,7 @@ export default function GuestApplyPage() {
       
       try {
         setLoading(true)
-        console.log(`Fetching invitation with token: ${token}`)
+        console.log(`Fetching invitation`)
         const response = await fetch(`${API_BASE_URL}/api/invitations/token/${token}`)
         
         if (!response.ok) {
