@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useCompanyAuth, fetchWithCompanyAuth } from "@/lib/company-auth-context"
 import { API_BASE_URL } from "@/lib/config"
 import {
@@ -70,13 +72,38 @@ export default function JobOffersPage() {
   // Invite form schema
   const inviteSchema = z.object({
     email: z.string().email("Invalid email address"),
+    // External company fields
+    isExternalCompany: z.boolean().optional(),
+    externalCompanyName: z.string().optional(),
+    externalCompanyEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
+    externalCompanySize: z.string().optional(),
+    externalCompanySector: z.string().optional(),
+    externalCompanyAbout: z.string().optional(),
+    externalCompanyWebsite: z.string().url("Invalid URL").optional().or(z.literal("")),
+  }).refine((data) => {
+    // If external company is selected, name is required
+    if (data.isExternalCompany && !data.externalCompanyName) {
+      return false;
+    }
+    return true;
+  }, {
+    message: "Company name is required when inviting for external company",
+    path: ["externalCompanyName"],
   })
   
   // Form for inviting candidates
-  const inviteForm = useForm<z.infer<typeof inviteSchema>>({
+  type InviteFormData = z.infer<typeof inviteSchema>
+  const inviteForm = useForm<InviteFormData>({
     resolver: zodResolver(inviteSchema),
     defaultValues: {
       email: "",
+      isExternalCompany: false,
+      externalCompanyName: "",
+      externalCompanyEmail: "",
+      externalCompanySize: "",
+      externalCompanySector: "",
+      externalCompanyAbout: "",
+      externalCompanyWebsite: "",
     },
   })
 
@@ -176,7 +203,16 @@ export default function JobOffersPage() {
         },
         body: JSON.stringify({
           email: values.email,
-          job_offer_id: selectedJob.id
+          job_offer_id: selectedJob.id,
+          // Add external company data if selected
+          ...(values.isExternalCompany && {
+            external_company_name: values.externalCompanyName,
+            ...(values.externalCompanyEmail && { external_company_email: values.externalCompanyEmail }),
+            ...(values.externalCompanySize && { external_company_size: values.externalCompanySize }),
+            ...(values.externalCompanySector && { external_company_sector: values.externalCompanySector }),
+            ...(values.externalCompanyAbout && { external_company_about: values.externalCompanyAbout }),
+            ...(values.externalCompanyWebsite && { external_company_website: values.externalCompanyWebsite })
+          })
         }),
       })
       
@@ -478,7 +514,7 @@ export default function JobOffersPage() {
 
       {/* Invite Candidates Modal */}
       <Dialog open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Invite Candidates</DialogTitle>
             <DialogDescription>
@@ -500,6 +536,140 @@ export default function JobOffersPage() {
                   </FormItem>
                 )}
               />
+              
+              {/* External Company Section */}
+              <FormField
+                control={inviteForm.control}
+                name="isExternalCompany"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Invite for another company
+                      </FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Check this if you're inviting a candidate on behalf of a different company
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              
+              {/* External Company Fields - Only show when checkbox is checked */}
+              {inviteForm.watch("isExternalCompany") && (
+                <div className="space-y-4 border rounded-md p-4 bg-muted/50">
+                  <h4 className="font-medium text-sm">External Company Information</h4>
+                  
+                  <FormField
+                    control={inviteForm.control}
+                    name="externalCompanyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Company name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={inviteForm.control}
+                    name="externalCompanyEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="company@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={inviteForm.control}
+                      name="externalCompanySize"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company Size</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select size" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="1-10">1-10 employees</SelectItem>
+                              <SelectItem value="11-50">11-50 employees</SelectItem>
+                              <SelectItem value="51-200">51-200 employees</SelectItem>
+                              <SelectItem value="201-500">201-500 employees</SelectItem>
+                              <SelectItem value="501-1000">501-1000 employees</SelectItem>
+                              <SelectItem value="1000+">1000+ employees</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={inviteForm.control}
+                      name="externalCompanySector"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Industry</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., Technology, Finance" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <FormField
+                    control={inviteForm.control}
+                    name="externalCompanyWebsite"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Website</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://company.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={inviteForm.control}
+                    name="externalCompanyAbout"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>About Company</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Brief description of the company" 
+                            className="resize-none" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+              
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setInviteModalOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={isUpdating}>Send Invitation</Button>

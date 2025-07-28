@@ -32,4 +32,21 @@ export const candidateInviteSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   jobOfferId: z.number().optional(),
   message: z.string().optional(),
+  // External company fields
+  isExternalCompany: z.boolean().default(false),
+  externalCompanyName: z.string().optional(),
+  externalCompanyEmail: z.string().email({ message: "Please enter a valid email address" }).optional().or(z.literal("")),
+  externalCompanySize: z.string().optional(),
+  externalCompanySector: z.string().optional(),
+  externalCompanyAbout: z.string().optional(),
+  externalCompanyWebsite: z.string().url({ message: "Please enter a valid URL" }).optional().or(z.literal("")),
+}).refine((data) => {
+  // If external company is selected, name is required
+  if (data.isExternalCompany && !data.externalCompanyName) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Company name is required when inviting for external company",
+  path: ["externalCompanyName"],
 })

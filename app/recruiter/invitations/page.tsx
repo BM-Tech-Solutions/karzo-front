@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useCompanyAuth, fetchWithCompanyAuth } from "@/lib/company-auth-context"
 import { API_BASE_URL } from "@/lib/config"
 import { useForm } from "react-hook-form"
@@ -39,6 +40,13 @@ export default function InvitationsPage() {
       email: "",
       jobOfferId: undefined,
       message: "",
+      isExternalCompany: false,
+      externalCompanyName: "",
+      externalCompanyEmail: "",
+      externalCompanySize: "",
+      externalCompanySector: "",
+      externalCompanyAbout: "",
+      externalCompanyWebsite: "",
     },
   })
 
@@ -71,16 +79,28 @@ export default function InvitationsPage() {
     fetchData()
   }, [])
 
-  const onSubmit = async (values: { email: string; jobOfferId?: number; message?: string }) => {
+  const onSubmit = async (values: any) => {
     setInviteError("")
     setInviteSuccess("")
 
     try {
-      const newInvitation = await createInvitation({
+      const invitationData: any = {
         email: values.email,
         job_offer_id: values.jobOfferId,
         message: values.message
-      })
+      }
+
+      // Add external company data if selected
+      if (values.isExternalCompany) {
+        invitationData.external_company_name = values.externalCompanyName
+        if (values.externalCompanyEmail) invitationData.external_company_email = values.externalCompanyEmail
+        if (values.externalCompanySize) invitationData.external_company_size = values.externalCompanySize
+        if (values.externalCompanySector) invitationData.external_company_sector = values.externalCompanySector
+        if (values.externalCompanyAbout) invitationData.external_company_about = values.externalCompanyAbout
+        if (values.externalCompanyWebsite) invitationData.external_company_website = values.externalCompanyWebsite
+      }
+
+      const newInvitation = await createInvitation(invitationData)
 
       setInviteSuccess(`Invitation sent to ${values.email}`)
       form.reset()
@@ -165,7 +185,7 @@ export default function InvitationsPage() {
               <DialogTrigger asChild>
                 <Button>Invite Candidate</Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Invite a Candidate</DialogTitle>
                   <DialogDescription>
@@ -231,6 +251,140 @@ export default function InvitationsPage() {
                         </FormItem>
                       )}
                     />
+                    
+                    {/* External Company Section */}
+                    <FormField
+                      control={form.control}
+                      name="isExternalCompany"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              Invite for another company
+                            </FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              Check this if you're inviting a candidate on behalf of a different company
+                            </p>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {/* External Company Fields - Only show when checkbox is checked */}
+                    {form.watch("isExternalCompany") && (
+                      <div className="space-y-4 border rounded-md p-4 bg-muted/50">
+                        <h4 className="font-medium text-sm">External Company Information</h4>
+                        
+                        <FormField
+                          control={form.control}
+                          name="externalCompanyName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Company Name *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Company name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="externalCompanyEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Company Email</FormLabel>
+                              <FormControl>
+                                <Input placeholder="company@example.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="externalCompanySize"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Company Size</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select size" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="1-10">1-10 employees</SelectItem>
+                                    <SelectItem value="11-50">11-50 employees</SelectItem>
+                                    <SelectItem value="51-200">51-200 employees</SelectItem>
+                                    <SelectItem value="201-500">201-500 employees</SelectItem>
+                                    <SelectItem value="501-1000">501-1000 employees</SelectItem>
+                                    <SelectItem value="1000+">1000+ employees</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="externalCompanySector"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Industry</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., Technology, Finance" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        <FormField
+                          control={form.control}
+                          name="externalCompanyWebsite"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Website</FormLabel>
+                              <FormControl>
+                                <Input placeholder="https://company.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="externalCompanyAbout"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>About Company</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Brief description of the company" 
+                                  className="resize-none" 
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+                    
                     {inviteError && <div className="text-sm font-medium text-destructive">{inviteError}</div>}
                     <DialogFooter>
                       <Button type="submit">Send Invitation</Button>

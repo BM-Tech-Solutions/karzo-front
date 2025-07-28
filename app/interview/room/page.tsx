@@ -77,6 +77,39 @@ export default function InterviewRoomPage() {
   const [candidateSummary, setCandidateSummary] = useState<string>('')
   const [guestInterviewId, setGuestInterviewId] = useState<string | null>(null)
   
+
+  // Cleanup effect to clear localStorage when component unmounts or when navigating away
+  useEffect(() => {
+    return () => {
+      // This cleanup function runs when the component unmounts
+      // Clear candidate and interview-specific data but keep essential session data
+      const itemsToClear = [
+        'candidate_summary',
+        'guest_candidate_name',
+        'interview_job_title',
+        'interview_company',
+        'company_size',
+        'company_sector',
+        'company_about',
+        'company_website',
+        'job_offer_questions',
+        'external_company_name',
+        'external_company_email',
+        'external_company_size',
+        'external_company_sector',
+        'external_company_about',
+        'external_company_website'
+      ];
+      
+      itemsToClear.forEach(item => {
+        localStorage.removeItem(item);
+      });
+      
+      console.log('Cleared candidate and company information from localStorage on component unmount');
+    };
+  }, []);
+  
+
   // Define handleEndInterview function using useCallback to prevent infinite loops
   const handleEndInterview = useCallback(async () => {
     await stopConversation()
@@ -346,24 +379,42 @@ export default function InterviewRoomPage() {
         console.error('Error handling job offer questions:', e);
       }
       
-      // Get company name from localStorage
-      const companyName = localStorage.getItem('interview_company') || '';
+      // Check if external company information is available in localStorage
+      const externalCompanyName = localStorage.getItem('external_company_name');
       
-      // Fetch company details
-      const companyDetails = companyName ? await fetchCompanyDetails(companyName) : null;
+      // Simple logic: If external company exists, use ALL external company info, otherwise use regular company info
+      let effectiveCompanyName, effectiveCompanySize, effectiveCompanySector, effectiveCompanyAbout, effectiveCompanyWebsite;
       
-      // Store company data in localStorage for the conversation hook to access
-      if (companyDetails) {
-        localStorage.setItem('company_size', companyDetails.size || '');
-        localStorage.setItem('company_sector', companyDetails.sector || '');
-        localStorage.setItem('company_about', companyDetails.about || '');
-        localStorage.setItem('company_website', companyDetails.website || '');
+      if (externalCompanyName) {
+        // Use external company information completely
+        effectiveCompanyName = externalCompanyName;
+        effectiveCompanySize = localStorage.getItem('external_company_size') || '';
+        effectiveCompanySector = localStorage.getItem('external_company_sector') || '';
+        effectiveCompanyAbout = localStorage.getItem('external_company_about') || '';
+        effectiveCompanyWebsite = localStorage.getItem('external_company_website') || '';
+        
+        console.log('Using external company information for ElevenLabs:', {
+          name: effectiveCompanyName,
+          size: effectiveCompanySize,
+          sector: effectiveCompanySector,
+          about: effectiveCompanyAbout,
+          website: effectiveCompanyWebsite
+        });
       } else {
-        // Fallback to empty strings if company details not found
-        localStorage.setItem('company_size', '');
-        localStorage.setItem('company_sector', '');
-        localStorage.setItem('company_about', '');
-        localStorage.setItem('company_website', '');
+        // Use regular company information
+        effectiveCompanyName = company || '';
+        effectiveCompanySize = localStorage.getItem('company_size') || '';
+        effectiveCompanySector = localStorage.getItem('company_sector') || '';
+        effectiveCompanyAbout = localStorage.getItem('company_about') || '';
+        effectiveCompanyWebsite = localStorage.getItem('company_website') || '';
+        
+        console.log('Using regular company information for ElevenLabs:', {
+          name: effectiveCompanyName,
+          size: effectiveCompanySize,
+          sector: effectiveCompanySector,
+          about: effectiveCompanyAbout,
+          website: effectiveCompanyWebsite
+        });
       }
       
       // Get form data for the conversation
@@ -372,13 +423,26 @@ export default function InterviewRoomPage() {
         // Use user's full name if available, then try localStorage, then fallback to 'Candidate'
         fullName: user?.full_name || localStorage.getItem('guest_candidate_name') || 'Candidate',
         candidateSummary: candidateSummary || '',
-        companyName: company || '',
-        companySize: localStorage.getItem('company_size') || '',
-        companySector: localStorage.getItem('company_sector') || '',
-        companyAbout: localStorage.getItem('company_about') || '',
-        companyWebsite: localStorage.getItem('company_website') || '',
+        companyName: effectiveCompanyName,
+        companySize: effectiveCompanySize,
+        companySector: effectiveCompanySector,
+        companyAbout: effectiveCompanyAbout,
+        companyWebsite: effectiveCompanyWebsite,
         jobOfferQuestions: JSON.parse(localStorage.getItem('job_offer_questions') || '[]')
       };
+      
+      // Debug: Log what we're sending to ElevenLabs
+      console.log('=== ELEVENLABS FORM DATA DEBUG ===');
+      console.log('Form data being sent to ElevenLabs:', JSON.stringify(formData, null, 2));
+      console.log('localStorage contents:');
+      console.log('- external_company_name:', localStorage.getItem('external_company_name'));
+      console.log('- external_company_size:', localStorage.getItem('external_company_size'));
+      console.log('- external_company_sector:', localStorage.getItem('external_company_sector'));
+      console.log('- external_company_about:', localStorage.getItem('external_company_about'));
+      console.log('- external_company_website:', localStorage.getItem('external_company_website'));
+      console.log('- job_offer_questions:', localStorage.getItem('job_offer_questions'));
+      console.log('- guest_candidate_name:', localStorage.getItem('guest_candidate_name'));
+      console.log('===================================');
 
       // Start the conversation with ElevenLabs
       await startConversation(formData);

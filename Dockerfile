@@ -12,6 +12,17 @@ RUN npm ci
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
+
+# Define build arguments for environment variables
+ARG NEXT_PUBLIC_ELEVENLABS_API_KEY
+ARG NEXT_PUBLIC_AGENT_ID
+ARG NEXT_PUBLIC_API_URL
+
+# Set environment variables for the build
+ENV NEXT_PUBLIC_ELEVENLABS_API_KEY=$NEXT_PUBLIC_ELEVENLABS_API_KEY
+ENV NEXT_PUBLIC_AGENT_ID=$NEXT_PUBLIC_AGENT_ID
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
