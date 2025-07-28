@@ -18,12 +18,26 @@ export interface InvitationCreate {
   email: string;
   job_offer_id?: number;
   message?: string;
+  // External company fields
+  external_company_name?: string;
+  external_company_email?: string;
+  external_company_size?: string;
+  external_company_sector?: string;
+  external_company_about?: string;
+  external_company_website?: string;
 }
 
 export interface BulkInvitationCreate {
   emails: string[];
   job_offer_id?: number;
   message?: string;
+  // External company fields
+  external_company_name?: string;
+  external_company_email?: string;
+  external_company_size?: string;
+  external_company_sector?: string;
+  external_company_about?: string;
+  external_company_website?: string;
 }
 
 // Get all invitations for the current company

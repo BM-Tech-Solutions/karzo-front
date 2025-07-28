@@ -18,10 +18,18 @@ interface InvitationDetails {
   company_name: string
   job_title?: string
   job_offer_id?: number
+  job_questions?: string[]
   status: string
   expires_at: string
   message?: string
   candidate_email: string
+  // External company fields
+  external_company_name?: string
+  external_company_email?: string
+  external_company_size?: string
+  external_company_sector?: string
+  external_company_about?: string
+  external_company_website?: string
 }
 
 export default function GuestApplyPage() {
@@ -74,6 +82,62 @@ export default function GuestApplyPage() {
         const data = await response.json()
         console.log("Invitation data received:", data)
         setInvitation(data)
+        
+        // Clear previous candidate and company information from localStorage
+        localStorage.removeItem('candidate_summary');
+        localStorage.removeItem('guest_candidate_name');
+        localStorage.removeItem('interview_job_title');
+        localStorage.removeItem('interview_company');
+        localStorage.removeItem('company_size');
+        localStorage.removeItem('company_sector');
+        localStorage.removeItem('company_about');
+        localStorage.removeItem('company_website');
+        localStorage.removeItem('job_offer_questions');
+        
+        console.log('Cleared previous candidate and company information from localStorage');
+        
+        // Debug: Log all invitation data to see what we're receiving
+        console.log('Full invitation data received from API:', JSON.stringify(data, null, 2));
+        
+        // Store external company information in localStorage if available
+        if (data.external_company_name) {
+          console.log('Storing external company information in localStorage:', {
+            name: data.external_company_name,
+            email: data.external_company_email,
+            size: data.external_company_size,
+            sector: data.external_company_sector,
+            about: data.external_company_about,
+            website: data.external_company_website
+          });
+          
+          localStorage.setItem('external_company_name', data.external_company_name);
+          localStorage.setItem('external_company_email', data.external_company_email || '');
+          localStorage.setItem('external_company_size', data.external_company_size || '');
+          localStorage.setItem('external_company_sector', data.external_company_sector || '');
+          localStorage.setItem('external_company_about', data.external_company_about || '');
+          localStorage.setItem('external_company_website', data.external_company_website || '');
+        } else {
+          // Clear external company information if not present
+          localStorage.removeItem('external_company_name');
+          localStorage.removeItem('external_company_email');
+          localStorage.removeItem('external_company_size');
+          localStorage.removeItem('external_company_sector');
+          localStorage.removeItem('external_company_about');
+          localStorage.removeItem('external_company_website');
+        }
+        
+        // Store job information in localStorage
+        localStorage.setItem('interview_job_title', data.job_title || '');
+        localStorage.setItem('interview_company', data.company_name || '');
+        
+        // Store job questions if available
+        if (data.job_questions && Array.isArray(data.job_questions)) {
+          localStorage.setItem('job_offer_questions', JSON.stringify(data.job_questions));
+          console.log(`Stored ${data.job_questions.length} job questions in localStorage:`, data.job_questions);
+        } else {
+          localStorage.removeItem('job_offer_questions');
+          console.log('No job questions found in invitation data');
+        }
         
         // Pre-fill email from invitation
         if (data.candidate_email) {
@@ -130,7 +194,7 @@ export default function GuestApplyPage() {
       
       const applicationData = await response.json()
       
-      // Store job information in localStorage for the interview flow
+      // Store job and candidate information in localStorage for the interview flow
       if (invitation.job_offer_id) {
         localStorage.setItem('interview_job_id', invitation.job_offer_id.toString())
       }
@@ -140,6 +204,16 @@ export default function GuestApplyPage() {
       if (invitation.company_name) {
         localStorage.setItem('interview_company', invitation.company_name)
       }
+      
+      // Store candidate name for the interview
+      localStorage.setItem('guest_candidate_name', name);
+      
+      console.log('Stored candidate and job information in localStorage:', {
+        name: name,
+        jobTitle: invitation.job_title,
+        company: invitation.company_name,
+        jobOfferId: invitation.job_offer_id
+      });
       
       // Store application ID if returned
       if (applicationData.id) {
