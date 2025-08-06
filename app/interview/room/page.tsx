@@ -77,6 +77,7 @@ export default function InterviewRoomPage() {
   const [candidateSummary, setCandidateSummary] = useState<string>('')
   const [guestInterviewId, setGuestInterviewId] = useState<string | null>(null)
   
+
   // Cleanup effect to clear localStorage when component unmounts or when navigating away
   useEffect(() => {
     return () => {
@@ -114,6 +115,7 @@ export default function InterviewRoomPage() {
     };
   }, []);
   
+
   // Define handleEndInterview function using useCallback to prevent infinite loops
   const handleEndInterview = useCallback(async () => {
     await stopConversation()
