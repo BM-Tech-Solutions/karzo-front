@@ -88,6 +88,12 @@ export default function InterviewRoomPage() {
         'guest_candidate_name',
         'interview_job_title',
         'interview_company',
+        'interview_language',
+        // TTS parameters
+        'interview_tts_temperature',
+        'interview_tts_stability',
+        'interview_tts_speed',
+        'interview_tts_similarity_boost',
         'company_size',
         'company_sector',
         'company_about',
@@ -401,12 +407,24 @@ export default function InterviewRoomPage() {
           website: effectiveCompanyWebsite
         });
       } else {
-        // Use regular company information
+        // Use regular company information from stored company object
         effectiveCompanyName = company || '';
-        effectiveCompanySize = localStorage.getItem('company_size') || '';
-        effectiveCompanySector = localStorage.getItem('company_sector') || '';
-        effectiveCompanyAbout = localStorage.getItem('company_about') || '';
-        effectiveCompanyWebsite = localStorage.getItem('company_website') || '';
+        
+        // Get company data from localStorage
+        let companyData = null;
+        try {
+          const storedCompany = localStorage.getItem('karzo_company');
+          if (storedCompany) {
+            companyData = JSON.parse(storedCompany);
+          }
+        } catch (error) {
+          console.error('Error parsing company data from localStorage:', error);
+        }
+        
+        effectiveCompanySize = companyData?.size || '';
+        effectiveCompanySector = companyData?.sector || '';
+        effectiveCompanyAbout = companyData?.about || '';
+        effectiveCompanyWebsite = companyData?.website || '';
         
         console.log('Using regular company information for ElevenLabs:', {
           name: effectiveCompanyName,
@@ -416,6 +434,23 @@ export default function InterviewRoomPage() {
           website: effectiveCompanyWebsite
         });
       }
+      
+      // Get language from localStorage (set during invitation process)
+      const interviewLanguage = localStorage.getItem('interview_language') as "fr" | "en" || "fr";
+      console.log(`Interview language from localStorage: ${interviewLanguage}`);
+      
+      // Get TTS parameters from localStorage (set by recruiter during invitation)
+      const ttsTemperature = localStorage.getItem('interview_tts_temperature');
+      const ttsStability = localStorage.getItem('interview_tts_stability');
+      const ttsSpeed = localStorage.getItem('interview_tts_speed');
+      const ttsSimilarityBoost = localStorage.getItem('interview_tts_similarity_boost');
+      
+      console.log('=== TTS PARAMETERS FROM LOCALSTORAGE ===');
+      console.log('TTS Temperature:', ttsTemperature);
+      console.log('TTS Stability:', ttsStability);
+      console.log('TTS Speed:', ttsSpeed);
+      console.log('TTS Similarity Boost:', ttsSimilarityBoost);
+      console.log('========================================');
       
       // Get form data for the conversation
       const formData = {
@@ -428,7 +463,13 @@ export default function InterviewRoomPage() {
         companySector: effectiveCompanySector,
         companyAbout: effectiveCompanyAbout,
         companyWebsite: effectiveCompanyWebsite,
-        jobOfferQuestions: JSON.parse(localStorage.getItem('job_offer_questions') || '[]')
+        jobOfferQuestions: JSON.parse(localStorage.getItem('job_offer_questions') || '[]'),
+        language: interviewLanguage,
+        // TTS parameters (only include if they exist)
+        ...(ttsTemperature && { ttsTemperature: parseFloat(ttsTemperature) }),
+        ...(ttsStability && { ttsStability: parseFloat(ttsStability) }),
+        ...(ttsSpeed && { ttsSpeed: parseFloat(ttsSpeed) }),
+        ...(ttsSimilarityBoost && { ttsSimilarityBoost: parseFloat(ttsSimilarityBoost) })
       };
       
       // Debug: Log what we're sending to ElevenLabs
@@ -440,8 +481,17 @@ export default function InterviewRoomPage() {
       console.log('- external_company_sector:', localStorage.getItem('external_company_sector'));
       console.log('- external_company_about:', localStorage.getItem('external_company_about'));
       console.log('- external_company_website:', localStorage.getItem('external_company_website'));
+      console.log('- karzo_company (parsed):', (() => {
+        try {
+          const storedCompany = localStorage.getItem('karzo_company');
+          return storedCompany ? JSON.parse(storedCompany) : null;
+        } catch (e) {
+          return 'Error parsing company data';
+        }
+      })());
       console.log('- job_offer_questions:', localStorage.getItem('job_offer_questions'));
       console.log('- guest_candidate_name:', localStorage.getItem('guest_candidate_name'));
+      console.log('- interview_language:', localStorage.getItem('interview_language'));
       console.log('===================================');
 
       // Start the conversation with ElevenLabs

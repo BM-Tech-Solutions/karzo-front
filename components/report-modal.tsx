@@ -17,6 +17,7 @@ interface ReportModalProps {
 interface Report {
   id: number
   content: any[] | string | null
+  report_content?: string | null  // New structured French report
   summary: string | null
   strengths: any[] | null
   weaknesses: any[] | null
@@ -69,98 +70,220 @@ export function ReportModal({ isOpen, onClose, reportId, interviewId }: ReportMo
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
-        className="max-w-3xl max-h-[80vh] overflow-y-auto" 
+        className="max-w-4xl max-h-[85vh] overflow-y-auto bg-gradient-to-br from-slate-50 to-white border-0 shadow-2xl" 
         aria-describedby="report-content-description"
       >
-        <DialogHeader>
-          <DialogTitle>Interview Report</DialogTitle>
+        <DialogHeader className="border-b border-slate-200 pb-4">
+          <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <div className="w-2 h-8 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
+            Interview Report
+          </DialogTitle>
         </DialogHeader>
         <div id="report-content-description" className="sr-only">
           Detailed interview report including summary, strengths, weaknesses, recommendation, and score.
         </div>
         
         {isLoading ? (
-          <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <span className="ml-2">Loading report...</span>
+          <div className="flex items-center justify-center p-12">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
+              <span className="text-slate-600 font-medium">Loading report...</span>
+            </div>
           </div>
         ) : error ? (
-          <div className="p-4 text-red-500">
-            {error}
+          <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+            <div className="text-red-700 font-medium">{error}</div>
           </div>
         ) : report ? (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold">Summary</h3>
-              <p className="mt-2 text-gray-700">
-                {typeof report.summary === 'string' ? report.summary : JSON.stringify(report.summary)}
-              </p>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold">Strengths</h3>
-              <ul className="mt-2 list-disc pl-5 space-y-1">
-                {Array.isArray(report.strengths) && report.strengths.length > 0 ? (
-                  report.strengths.map((strength, index) => (
-                    <li key={index} className="text-gray-700">
-                      {typeof strength === 'string' ? strength : JSON.stringify(strength)}
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-gray-700">No specific strengths identified</li>
-                )}
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold">Areas for Improvement</h3>
-              <ul className="mt-2 list-disc pl-5 space-y-1">
-                {Array.isArray(report.weaknesses) && report.weaknesses.length > 0 ? (
-                  report.weaknesses.map((weakness, index) => (
-                    <li key={index} className="text-gray-700">
-                      {typeof weakness === 'string' ? weakness : JSON.stringify(weakness)}
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-gray-700">No specific areas for improvement identified</li>
-                )}
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold">Recommendation</h3>
-              <p className="mt-2 text-gray-700">
-                {typeof report.recommendation === 'string' ? report.recommendation : JSON.stringify(report.recommendation)}
-              </p>
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold">Score</h3>
-              <div className="mt-2 flex items-center">
-                <div className="text-2xl font-bold">{report.score ?? 0}/100</div>
-                <div className="ml-4 h-2 w-40 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full ${
-                      (report.score ?? 0) >= 80 ? 'bg-green-500' : 
-                      (report.score ?? 0) >= 60 ? 'bg-yellow-500' : 
-                      'bg-red-500'
-                    }`} 
-                    style={{ width: `${report.score ?? 0}%` }}
-                  />
+          <div className="space-y-6 pt-2">
+            {/* Display new structured French report if available */}
+            {report.report_content ? (
+              <div className="space-y-6">
+                {(() => {
+                  // Parse the report content into sections
+                  console.log('Report candidate_name:', report.candidate_name)
+                  console.log('Original report content:', report.report_content.substring(0, 500))
+                  
+                  let content = report.report_content
+                    // Replace candidate name with actual candidate name (try different patterns)
+                    .replace(/\*\*Candidat\*\* : \[.*?\]/g, `**Candidat** : ${report.candidate_name || 'Nom non disponible'}`)
+                    .replace(/\*\*Candidat\*\* : [^\n]*/g, `**Candidat** : ${report.candidate_name || 'Nom non disponible'}`)
+                    .replace(/- \*\*Candidat\*\* : \[.*?\]/g, `- **Candidat** : ${report.candidate_name || 'Nom non disponible'}`)
+                    .replace(/- \*\*Candidat\*\* : [^\n]*/g, `- **Candidat** : ${report.candidate_name || 'Nom non disponible'}`)
+                    // Remove only specific placeholder brackets, not all brackets
+                    .replace(/\[Nom Prénom\]/g, report.candidate_name || 'Nom non disponible')
+                    .replace(/\[Intitulé du poste\]/g, 'Poste')
+                    .replace(/\[Durée totale \+ détail stages\/professionnel\]/g, 'Non spécifié')
+                    // Remove empty bracket content but keep structure
+                    .replace(/\*\*\[([^\]]+)\]\*\*/g, '**$1**')
+                    .replace(/\[([^\]]+)\]/g, '$1')
+                  
+                  console.log('Processed content:', content.substring(0, 500))
+                  
+                  const sections = content.split(/(?=^##? )/gm).filter(section => section.trim())
+                  
+                  return sections.map((section, index) => {
+                    const lines = section.trim().split('\n')
+                    const title = lines[0].replace(/^##? /, '').trim()
+                    const body = lines.slice(1).join('\n').trim()
+                    
+                    // Skip only completely empty sections
+                    if (!title && !body) return null
+                    
+                    // If no body, create a placeholder
+                    const displayBody = body || 'Contenu non disponible'
+                    
+                    // Determine section color based on title
+                    let sectionColor = 'blue'
+                    if (title.toLowerCase().includes('en-tête') || title.toLowerCase().includes('structure')) {
+                      sectionColor = 'indigo'
+                    } else if (title.toLowerCase().includes('présélection')) {
+                      sectionColor = 'purple'
+                    } else if (title.toLowerCase().includes('évaluation')) {
+                      sectionColor = 'green'
+                    }
+                    
+                    return (
+                      <div key={index} className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                        {/* Section Header */}
+                        <div className={`px-6 py-4 bg-gradient-to-r ${
+                          sectionColor === 'indigo' ? 'from-indigo-50 to-indigo-100 border-b border-indigo-200' :
+                          sectionColor === 'purple' ? 'from-purple-50 to-purple-100 border-b border-purple-200' :
+                          sectionColor === 'green' ? 'from-green-50 to-green-100 border-b border-green-200' :
+                          'from-blue-50 to-blue-100 border-b border-blue-200'
+                        }`}>
+                          <h2 className={`text-xl font-bold ${
+                            sectionColor === 'indigo' ? 'text-indigo-800' :
+                            sectionColor === 'purple' ? 'text-purple-800' :
+                            sectionColor === 'green' ? 'text-green-800' :
+                            'text-blue-800'
+                          } flex items-center gap-3`}>
+                            <div className={`w-1 h-6 rounded-full ${
+                              sectionColor === 'indigo' ? 'bg-indigo-500' :
+                              sectionColor === 'purple' ? 'bg-purple-500' :
+                              sectionColor === 'green' ? 'bg-green-500' :
+                              'bg-blue-500'
+                            }`}></div>
+                            {title}
+                          </h2>
+                        </div>
+                        
+                        {/* Section Content */}
+                        <div className="p-6">
+                          <div 
+                            className="prose prose-sm max-w-none text-slate-700 leading-relaxed"
+                            dangerouslySetInnerHTML={{
+                              __html: displayBody
+                                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 font-semibold">$1</strong>')
+                                .replace(/^### (.*$)/gm, '<h3 class="text-lg font-semibold text-slate-800 mt-6 mb-3 pb-2 border-b border-slate-200">$1</h3>')
+                                .replace(/^• (.*$)/gm, '<div class="flex items-start gap-3 mb-3 p-3 bg-slate-50 rounded-lg"><span class="text-blue-500 font-bold mt-0.5">•</span><span class="flex-1">$1</span></div>')
+                                .replace(/^\[([^\]]+)\] : (.*$)/gm, '<div class="flex items-start gap-3 mb-3 p-3 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg"><span class="text-amber-600 font-semibold">$1</span><span class="flex-1 text-slate-700">: $2</span></div>')
+                                .replace(/\n\n/g, '<br><br>')
+                                .replace(/\n/g, '<br>')
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+            ) : (
+              /* Fallback to old format if new report_content is not available */
+              <div className="space-y-6">
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-800 mb-3 border-l-4 border-blue-500 pl-3 bg-blue-50 py-2 rounded-r-lg">Summary</h3>
+                  <p className="text-slate-700 leading-relaxed">
+                    {typeof report.summary === 'string' ? report.summary : JSON.stringify(report.summary)}
+                  </p>
+                </div>
+                
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-800 mb-3 border-l-4 border-green-500 pl-3 bg-green-50 py-2 rounded-r-lg">Strengths</h3>
+                  <ul className="space-y-2">
+                    {Array.isArray(report.strengths) && report.strengths.length > 0 ? (
+                      report.strengths.map((strength, index) => (
+                        <li key={index} className="flex items-start gap-2 text-slate-700">
+                          <span className="text-green-500 font-bold mt-1">✓</span>
+                          <span>{typeof strength === 'string' ? strength : JSON.stringify(strength)}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="flex items-start gap-2 text-slate-500">
+                        <span className="text-slate-400 font-bold mt-1">•</span>
+                        <span>No specific strengths identified</span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+                
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-800 mb-3 border-l-4 border-orange-500 pl-3 bg-orange-50 py-2 rounded-r-lg">Areas for Improvement</h3>
+                  <ul className="space-y-2">
+                    {Array.isArray(report.weaknesses) && report.weaknesses.length > 0 ? (
+                      report.weaknesses.map((weakness, index) => (
+                        <li key={index} className="flex items-start gap-2 text-slate-700">
+                          <span className="text-orange-500 font-bold mt-1">⚠</span>
+                          <span>{typeof weakness === 'string' ? weakness : JSON.stringify(weakness)}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="flex items-start gap-2 text-slate-500">
+                        <span className="text-slate-400 font-bold mt-1">•</span>
+                        <span>No specific areas for improvement identified</span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+                
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-800 mb-3 border-l-4 border-purple-500 pl-3 bg-purple-50 py-2 rounded-r-lg">Recommendation</h3>
+                  <p className="text-slate-700 leading-relaxed">
+                    {typeof report.recommendation === 'string' ? report.recommendation : JSON.stringify(report.recommendation)}
+                  </p>
+                </div>
+                
+                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                  <h3 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-indigo-500 pl-3 bg-indigo-50 py-2 rounded-r-lg">Score</h3>
+                  <div className="flex items-center gap-4">
+                    <div className="text-3xl font-bold text-slate-800">{report.score ?? 0}<span className="text-lg text-slate-500">/100</span></div>
+                    <div className="flex-1">
+                      <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-500 ${
+                            (report.score ?? 0) >= 80 ? 'bg-gradient-to-r from-green-500 to-green-600' : 
+                            (report.score ?? 0) >= 60 ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' : 
+                            'bg-gradient-to-r from-red-500 to-red-600'
+                          }`} 
+                          style={{ width: `${report.score ?? 0}%` }}
+                        />
+                      </div>
+                      <div className="text-sm text-slate-500 mt-1">
+                        {(report.score ?? 0) >= 80 ? 'Excellent' : 
+                         (report.score ?? 0) >= 60 ? 'Good' : 
+                         'Needs Improvement'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             
             {/* Full Transcript Analysis section removed as requested */}
           </div>
         ) : (
-          <div className="p-4 text-gray-500">
-            No report data available
+          <div className="p-8 text-center">
+            <div className="text-slate-400 text-lg">No report data available</div>
           </div>
         )}
         
-        <div className="mt-6 flex justify-end">
-          <Button onClick={onClose}>Close</Button>
+        <div className="mt-8 pt-4 border-t border-slate-200 flex justify-end">
+          <Button 
+            onClick={onClose}
+            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            Close Report
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

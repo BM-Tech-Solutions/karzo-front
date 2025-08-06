@@ -32,6 +32,13 @@ export const candidateInviteSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
   jobOfferId: z.number().optional(),
   message: z.string().optional(),
+  // Language field
+  language: z.enum(["fr", "en", "candidate_choice"]).default("fr"),
+  // TTS parameters for ElevenLabs voice configuration
+  tts_temperature: z.number().min(0).max(1).optional(),
+  tts_stability: z.number().min(0).max(1).optional(),
+  tts_speed: z.number().min(0.25).max(4.0).optional(),
+  tts_similarity_boost: z.number().min(0).max(1).optional(),
   // External company fields
   isExternalCompany: z.boolean().default(false),
   externalCompanyName: z.string().optional(),
