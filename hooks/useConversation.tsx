@@ -21,6 +21,12 @@ interface FormData {
   companyAbout?: string;
   companyWebsite?: string;
   jobOfferQuestions?: string[];
+  language?: "fr" | "en";
+  // TTS parameters for ElevenLabs voice configuration
+  ttsTemperature?: number;
+  ttsStability?: number;
+  ttsSpeed?: number;
+  ttsSimilarityBoost?: number;
 }
 
 interface SessionInfo {
@@ -130,6 +136,46 @@ export const useConversation = () => {
           company_website: formData.companyWebsite || '',
           joboffer_questions: formData.jobOfferQuestions && Array.isArray(formData.jobOfferQuestions) && formData.jobOfferQuestions.length > 0 ? JSON.stringify(formData.jobOfferQuestions) : '[]'
         },
+        // Build overrides object for language and TTS parameters
+        ...(() => {
+          const overrides: any = {};
+          
+          // Language override
+          if (formData.language === "en") {
+            overrides.agent = {
+              language: "en" // Override to English only when specifically selected
+            };
+          }
+          
+          // TTS parameters override
+          const ttsOverrides: any = {};
+          if (formData.ttsStability !== undefined) {
+            ttsOverrides.stability = formData.ttsStability;
+          }
+          if (formData.ttsSpeed !== undefined) {
+            ttsOverrides.speed = formData.ttsSpeed;
+          }
+          if (formData.ttsSimilarityBoost !== undefined) {
+            ttsOverrides.similarity_boost = formData.ttsSimilarityBoost;
+          }
+          
+          if (Object.keys(ttsOverrides).length > 0) {
+            overrides.tts = ttsOverrides;
+          }
+          
+          // Temperature goes in prompt overrides
+          if (formData.ttsTemperature !== undefined) {
+            overrides.prompt = {
+              temperature: formData.ttsTemperature
+            };
+          }
+          
+          console.log('=== ELEVENLABS OVERRIDES DEBUG ===');
+          console.log('Final overrides object:', JSON.stringify(overrides, null, 2));
+          console.log('==================================');
+          
+          return Object.keys(overrides).length > 0 ? { overrides } : {};
+        })(),
         onConnect: () => {
           setConnectionStatus(translations.connectionStatus.connected);
           setIsConnected(true);

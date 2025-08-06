@@ -18,6 +18,13 @@ export interface InvitationCreate {
   email: string;
   job_offer_id?: number;
   message?: string;
+  // Language field
+  language?: "fr" | "en" | "candidate_choice";
+  // TTS parameters for ElevenLabs voice configuration
+  tts_temperature?: number;
+  tts_stability?: number;
+  tts_speed?: number;
+  tts_similarity_boost?: number;
   // External company fields
   external_company_name?: string;
   external_company_email?: string;
@@ -31,6 +38,13 @@ export interface BulkInvitationCreate {
   emails: string[];
   job_offer_id?: number;
   message?: string;
+  // Language field
+  language?: "fr" | "en" | "candidate_choice";
+  // TTS parameters for ElevenLabs voice configuration
+  tts_temperature?: number;
+  tts_stability?: number;
+  tts_speed?: number;
+  tts_similarity_boost?: number;
   // External company fields
   external_company_name?: string;
   external_company_email?: string;

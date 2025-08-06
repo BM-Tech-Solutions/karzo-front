@@ -16,8 +16,8 @@ interface Interview {
   id: number
   candidate_name: string
   job_offer_title: string
-  scheduled_date: string
-  status: "scheduled" | "completed" | "cancelled" | "passed" | "pending" | "processing" | "done"
+  scheduled_date: string | null
+  status: "pending" | "passed" | "cancelled" | "processing" | "report_generated"
   conversation_id?: string
   report_id?: number
   report_status?: "processing" | "complete" | "failed" | null
@@ -50,12 +50,17 @@ export default function InterviewsPage() {
         const data = await response.json()
         console.log("Fetched interviews data:", data) // Debug log to see what's coming from the API
         
-        // Map the data to ensure consistent field names
+        // Log first interview for debugging
+        if (data.length > 0) {
+          console.log("First interview sample:", data[0])
+        }
+        
+        // Map the data to ensure consistent field names (handle both regular and guest interview formats)
         const normalizedInterviews = data.map((interview: any) => ({
           id: interview.id,
-          candidate_name: interview.candidate_name,
-          job_offer_title: interview.job_title,
-          scheduled_date: interview.date || new Date().toISOString(),
+          candidate_name: interview.candidate_name || interview.candidateName,
+          job_offer_title: interview.job_title || interview.jobTitle,
+          scheduled_date: interview.date || interview.scheduled_date || null,
           status: interview.status,
           conversation_id: interview.conversation_id,
           report_id: interview.report_id,
@@ -124,7 +129,7 @@ export default function InterviewsPage() {
               setInterviews(prevInterviews => 
                 prevInterviews.map(interview => 
                   interview.id === interviewId 
-                    ? { ...interview, status: "done", report_status: "complete" } 
+                    ? { ...interview, status: "report_generated", report_status: "complete" } 
                     : interview
                 )
               )
@@ -206,25 +211,29 @@ export default function InterviewsPage() {
     interview.job_offer_title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Not scheduled"
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return "Invalid date"
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric' 
     })
   }
 
   const getStatusBadgeClass = (status: string) => {
     switch(status) {
-      case 'scheduled':
-        return 'bg-blue-100 text-blue-800'
-      case 'completed':
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'passed':
         return 'bg-green-100 text-green-800'
       case 'cancelled':
         return 'bg-red-100 text-red-800'
+      case 'report_generated':
+        return 'bg-blue-100 text-blue-800'
+      case 'processing':
+        return 'bg-purple-100 text-purple-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -280,7 +289,7 @@ export default function InterviewsPage() {
                     <div className="flex justify-between items-start">
                       <CardTitle>{interview.candidate_name}</CardTitle>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(interview.status)}`}>
-                        {interview.status.charAt(0).toUpperCase() + interview.status.slice(1)}
+                        {interview.status === 'report_generated' ? 'Report Generated' : interview.status.charAt(0).toUpperCase() + interview.status.slice(1)}
                       </span>
                     </div>
                   </CardHeader>
@@ -330,7 +339,7 @@ export default function InterviewsPage() {
                       ) : (
                         // No report yet - show generate button (disabled unless interview is passed)
                         <div className="relative group">
-                          {interview.status === "done" ? (
+                          {interview.status === "report_generated" && interview.report_id ? (
                             <Button 
                               variant="outline" 
                               size="sm" 
@@ -344,7 +353,7 @@ export default function InterviewsPage() {
                               variant="outline" 
                               size="sm" 
                               className="mr-2"
-                              disabled={interview.status !== "passed" && interview.status !== "processing"}
+                              disabled={interview.status !== "passed" && interview.status !== "processing" && interview.status !== "report_generated"}
                               onClick={() => {
                                 // If interview has conversation ID, generate report directly
                                 if (interview.conversation_id) {
@@ -359,10 +368,10 @@ export default function InterviewsPage() {
                                 }
                               }}
                             >
-                              {interview.status !== "passed" && interview.status !== "processing" ? "Interview Not Completed" : "Generate Report"}
+                              {interview.status === "pending" || interview.status === "cancelled" ? "Interview Not Completed" : (interview.status === "report_generated" && !interview.report_id ? "Regenerate Report" : "Generate Report")}
                             </Button>
                           )}
-                          {interview.status !== "passed" && interview.status !== "processing" && interview.status !== "done" && (
+                          {interview.status !== "passed" && interview.status !== "processing" && interview.status !== "report_generated" && (
                             <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-black text-white text-xs rounded py-1 px-2 whitespace-nowrap">
                               Report generation is only available after the interview is completed
                             </div>

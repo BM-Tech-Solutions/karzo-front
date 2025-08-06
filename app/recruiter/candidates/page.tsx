@@ -14,8 +14,8 @@ interface Candidate {
   email: string
   job_title: string
   resume_url?: string
-  status: "applied" | "screening" | "interviewed" | "hired" | "rejected" | "passed"
-  applied_date: string
+  status: "applied" | "screening" | "interviewed" | "hired" | "rejected" | "passed" | "pending"
+  applied_date: string | null
   interview_score?: number
   recruiter_id?: number
 }
@@ -49,7 +49,7 @@ export default function CandidatesPage() {
               resume_url: candidate.resume_url || null,
               // Include pending status to show guest candidates
               status: candidate.status || "pending",
-              applied_date: candidate.created_at || new Date().toISOString()
+              applied_date: candidate.created_at || null
             };
           })
           
@@ -103,8 +103,10 @@ export default function CandidatesPage() {
     candidate.job_title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Not specified"
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return "Invalid date"
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'short', 
@@ -126,6 +128,8 @@ export default function CandidatesPage() {
         return 'bg-red-100 text-red-800'
       case 'passed':
         return 'bg-emerald-100 text-emerald-800'
+      case 'pending':
+        return 'bg-orange-100 text-orange-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -189,21 +193,7 @@ export default function CandidatesPage() {
                         <p className="text-sm text-muted-foreground">Applied on</p>
                         <p className="font-medium">{formatDate(candidate.applied_date)}</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Resume</p>
-                        {candidate.resume_url ? (
-                          <a 
-                            href={candidate.resume_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
-                          >
-                            View Resume
-                          </a>
-                        ) : (
-                          <p>No resume available</p>
-                        )}
-                      </div>
+
                       {candidate.interview_score !== undefined && (
                         <div>
                           <p className="text-sm text-muted-foreground">Interview Score</p>
@@ -211,21 +201,7 @@ export default function CandidatesPage() {
                         </div>
                       )}
                     </div>
-                    <div className="mt-4 flex space-x-2">
-                      {candidate.status !== "hired" && candidate.status !== "rejected" && (
-                        <>
-                          <Button variant="outline" size="sm" className="text-green-500 hover:text-green-700">
-                            Hire
-                          </Button>
-                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-700">
-                            Reject
-                          </Button>
-                        </>
-                      )}
-                      <Button variant="outline" size="sm" className="text-gray-500 hover:text-gray-700">
-                        Delete
-                      </Button>
-                    </div>
+
                   </CardContent>
                 </Card>
               ))}

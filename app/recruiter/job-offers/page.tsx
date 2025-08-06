@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
 import { useCompanyAuth, fetchWithCompanyAuth } from "@/lib/company-auth-context"
 import { API_BASE_URL } from "@/lib/config"
 import {
@@ -72,6 +73,13 @@ export default function JobOffersPage() {
   // Invite form schema
   const inviteSchema = z.object({
     email: z.string().email("Invalid email address"),
+    // Language field
+    language: z.enum(["fr", "en", "candidate_choice"]),
+    // TTS parameters for ElevenLabs voice configuration
+    tts_temperature: z.number().min(0).max(1).optional(),
+    tts_stability: z.number().min(0).max(1).optional(),
+    tts_speed: z.number().min(0.25).max(4.0).optional(),
+    tts_similarity_boost: z.number().min(0).max(1).optional(),
     // External company fields
     isExternalCompany: z.boolean().optional(),
     externalCompanyName: z.string().optional(),
@@ -97,6 +105,12 @@ export default function JobOffersPage() {
     resolver: zodResolver(inviteSchema),
     defaultValues: {
       email: "",
+      language: "fr" as const,
+      // TTS parameter defaults
+      tts_temperature: 0.5,
+      tts_stability: 0.5,
+      tts_speed: 1.0,
+      tts_similarity_boost: 0.8,
       isExternalCompany: false,
       externalCompanyName: "",
       externalCompanyEmail: "",
@@ -204,6 +218,12 @@ export default function JobOffersPage() {
         body: JSON.stringify({
           email: values.email,
           job_offer_id: selectedJob.id,
+          language: values.language,
+          // Add TTS parameters
+          ...(values.tts_temperature !== undefined && { tts_temperature: values.tts_temperature }),
+          ...(values.tts_stability !== undefined && { tts_stability: values.tts_stability }),
+          ...(values.tts_speed !== undefined && { tts_speed: values.tts_speed }),
+          ...(values.tts_similarity_boost !== undefined && { tts_similarity_boost: values.tts_similarity_boost }),
           // Add external company data if selected
           ...(values.isExternalCompany && {
             external_company_name: values.externalCompanyName,
@@ -297,8 +317,10 @@ export default function JobOffersPage() {
     job.description.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "Not specified"
     const date = new Date(dateString)
+    if (isNaN(date.getTime())) return "Invalid date"
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'short', 
@@ -536,6 +558,127 @@ export default function JobOffersPage() {
                   </FormItem>
                 )}
               />
+              
+              <FormField
+                control={inviteForm.control}
+                name="language"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Interview Language</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select language" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="fr">French (Français) - Default</SelectItem>
+                        <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="candidate_choice">Let candidate choose (French/English)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {/* Voice Settings Section */}
+              <div className="space-y-4 border rounded-md p-4 bg-muted/50">
+                <h4 className="font-medium text-sm">Voice Settings (Advanced)</h4>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Configure the AI interviewer's voice characteristics. Leave default values for standard interviews.
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={inviteForm.control}
+                    name="tts_temperature"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Temperature: {field.value?.toFixed(2) || '0.50'}</FormLabel>
+                        <FormControl>
+                          <Slider
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={[field.value || 0.5]}
+                            onValueChange={(value) => field.onChange(value[0])}
+                            className="w-full"
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">Controls response creativity (0 = conservative, 1 = creative)</p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={inviteForm.control}
+                    name="tts_stability"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Stability: {field.value?.toFixed(2) || '0.50'}</FormLabel>
+                        <FormControl>
+                          <Slider
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={[field.value || 0.5]}
+                            onValueChange={(value) => field.onChange(value[0])}
+                            className="w-full"
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">Voice consistency (0 = variable, 1 = stable)</p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={inviteForm.control}
+                    name="tts_speed"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Speed: {field.value?.toFixed(2) || '1.00'}</FormLabel>
+                        <FormControl>
+                          <Slider
+                            min={0.25}
+                            max={4.0}
+                            step={0.05}
+                            value={[field.value || 1.0]}
+                            onValueChange={(value) => field.onChange(value[0])}
+                            className="w-full"
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">Speaking rate (0.25 = slow, 4.0 = fast)</p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={inviteForm.control}
+                    name="tts_similarity_boost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Similarity: {field.value?.toFixed(2) || '0.80'}</FormLabel>
+                        <FormControl>
+                          <Slider
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={[field.value || 0.8]}
+                            onValueChange={(value) => field.onChange(value[0])}
+                            className="w-full"
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">Voice similarity to original (0 = different, 1 = identical)</p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
               
               {/* External Company Section */}
               <FormField

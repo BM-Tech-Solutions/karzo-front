@@ -13,9 +13,8 @@ export default function RecruiterDashboard() {
     totalJobOffers: 0,
     activeJobOffers: 0,
     totalCandidates: 0,
-    pendingInterviews: 0,
+    totalInterviews: 0,
   })
-  const [recentApplications, setRecentApplications] = useState([])
   const [upcomingInterviews, setUpcomingInterviews] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -26,25 +25,23 @@ export default function RecruiterDashboard() {
         const statsResponse = await fetchWithCompanyAuth(`${API_BASE_URL}/api/company/dashboard-stats`)
         if (statsResponse.ok) {
           const statsData = await statsResponse.json()
-          setStats(statsData)
+          setStats({
+            totalJobOffers: statsData.totalJobOffers || 0,
+            activeJobOffers: statsData.activeJobOffers || 0,
+            totalCandidates: statsData.totalCandidates || 0,
+            totalInterviews: statsData.totalInterviews || 0,
+          })
         } else {
           console.error("Failed to fetch dashboard stats:", statsResponse.statusText)
         }
         
-        // Fetch recent applications
-        const applicationsResponse = await fetchWithCompanyAuth(`${API_BASE_URL}/api/company/recent-applications`)
-        if (applicationsResponse.ok) {
-          const applicationsData = await applicationsResponse.json()
-          setRecentApplications(applicationsData)
-        } else {
-          console.error("Failed to fetch recent applications:", applicationsResponse.statusText)
-        }
-        
-        // Fetch upcoming interviews
-        const interviewsResponse = await fetchWithCompanyAuth(`${API_BASE_URL}/api/company/upcoming-interviews`)
+        // Fetch upcoming interviews (only pending status)
+        const interviewsResponse = await fetchWithCompanyAuth(`${API_BASE_URL}/api/company/interviews`)
         if (interviewsResponse.ok) {
           const interviewsData = await interviewsResponse.json()
-          setUpcomingInterviews(interviewsData)
+          // Filter only pending interviews
+          const pendingInterviews = interviewsData.filter((interview: any) => interview.status === 'pending')
+          setUpcomingInterviews(pendingInterviews.slice(0, 5)) // Show max 5 upcoming interviews
         } else {
           console.error("Failed to fetch upcoming interviews:", interviewsResponse.statusText)
         }
@@ -151,7 +148,7 @@ export default function RecruiterDashboard() {
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Pending Interviews</CardTitle>
+                    <CardTitle className="text-sm font-medium">Total Interviews</CardTitle>
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
@@ -162,81 +159,26 @@ export default function RecruiterDashboard() {
                       strokeLinejoin="round"
                       className="h-4 w-4 text-muted-foreground"
                     >
-                      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                      <line x1="16" x2="16" y1="2" y2="6" />
-                      <line x1="8" x2="8" y1="2" y2="6" />
-                      <line x1="3" x2="21" y1="10" y2="10" />
+                      <path d="M8 2v4" />
+                      <path d="M16 2v4" />
+                      <rect width="18" height="18" x="3" y="4" rx="2" />
+                      <path d="M3 10h18" />
                     </svg>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stats.pendingInterviews}</div>
-                    <p className="text-xs text-muted-foreground">
-                      Scheduled interviews
-                    </p>
+                    <div className="text-2xl font-bold">{stats.totalInterviews}</div>
+                    <p className="text-xs text-muted-foreground">All interviews conducted</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-4 w-4 text-muted-foreground"
-                    >
-                      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                    </svg>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="text-sm">
-                      <a href="/recruiter/job-offers/new" className="text-blue-600 hover:underline">
-                        + Create Job Offer
-                      </a>
-                    </div>
-                    <div className="text-sm">
-                      <a href="/recruiter/invitations/new" className="text-blue-600 hover:underline">
-                        + Invite Candidate
-                      </a>
-                    </div>
-                  </CardContent>
-                </Card>
+
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Job Applications</CardTitle>
-                    <CardDescription>
-                      Latest candidates who applied to your job offers
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {recentApplications.length > 0 ? (
-                        recentApplications.map((application: any, index: number) => (
-                          <div key={application.id} className={index < recentApplications.length - 1 ? "border-b pb-2" : ""}>
-                            <p className="font-medium">{application.candidateName}</p>
-                            <p className="text-sm text-muted-foreground">Applied for: {application.jobTitle}</p>
-                            <p className="text-xs text-muted-foreground">{application.daysAgo === 0 ? "Today" : application.daysAgo === 1 ? "Yesterday" : `${application.daysAgo} days ago`}</p>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-4">
-                          <p className="text-muted-foreground">No recent applications</p>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+              <div className="grid gap-4">
                 <Card>
                   <CardHeader>
                     <CardTitle>Upcoming Interviews</CardTitle>
                     <CardDescription>
-                      Your scheduled interviews for the next few days
+                      Pending interviews that need to be conducted
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -244,14 +186,16 @@ export default function RecruiterDashboard() {
                       {upcomingInterviews.length > 0 ? (
                         upcomingInterviews.map((interview: any, index: number) => (
                           <div key={interview.id} className={index < upcomingInterviews.length - 1 ? "border-b pb-2" : ""}>
-                            <p className="font-medium">{interview.candidateName}</p>
-                            <p className="text-sm text-muted-foreground">Position: {interview.jobTitle}</p>
-                            <p className="text-xs text-muted-foreground">{interview.date}</p>
+                            <p className="font-medium">{interview.candidate_name || interview.candidateName}</p>
+                            <p className="text-sm text-muted-foreground">Position: {interview.job_title || interview.jobTitle}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Status: <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Pending</span>
+                            </p>
                           </div>
                         ))
                       ) : (
                         <div className="text-center py-4">
-                          <p className="text-muted-foreground">No upcoming interviews</p>
+                          <p className="text-muted-foreground">No pending interviews</p>
                         </div>
                       )}
                     </div>

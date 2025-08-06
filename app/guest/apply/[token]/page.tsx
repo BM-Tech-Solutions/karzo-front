@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { API_BASE_URL } from "@/lib/config"
 import { AlertCircle, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -23,6 +24,8 @@ interface InvitationDetails {
   expires_at: string
   message?: string
   candidate_email: string
+  // Language field
+  language?: "fr" | "en" | "candidate_choice"
   // External company fields
   external_company_name?: string
   external_company_email?: string
@@ -45,6 +48,7 @@ export default function GuestApplyPage() {
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [coverLetter, setCoverLetter] = useState("")
+  const [selectedLanguage, setSelectedLanguage] = useState<"fr" | "en">("fr")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Fetch invitation details
@@ -88,6 +92,7 @@ export default function GuestApplyPage() {
         localStorage.removeItem('guest_candidate_name');
         localStorage.removeItem('interview_job_title');
         localStorage.removeItem('interview_company');
+        localStorage.removeItem('interview_language');
         localStorage.removeItem('company_size');
         localStorage.removeItem('company_sector');
         localStorage.removeItem('company_about');
@@ -129,6 +134,23 @@ export default function GuestApplyPage() {
         // Store job information in localStorage
         localStorage.setItem('interview_job_title', data.job_title || '');
         localStorage.setItem('interview_company', data.company_name || '');
+        
+        // Store language information
+        console.log('=== LANGUAGE DEBUG ===');
+        console.log('data.language from API:', data.language);
+        console.log('typeof data.language:', typeof data.language);
+        console.log('data.language === undefined:', data.language === undefined);
+        console.log('data.language === null:', data.language === null);
+        console.log('======================');
+        
+        if (data.language) {
+          localStorage.setItem('interview_language', data.language);
+          console.log(`Stored interview language: ${data.language}`);
+        } else {
+          // Default to French if no language specified
+          localStorage.setItem('interview_language', 'fr');
+          console.log('No language specified in API response, defaulting to French');
+        }
         
         // Store job questions if available
         if (data.job_questions && Array.isArray(data.job_questions)) {
@@ -208,11 +230,17 @@ export default function GuestApplyPage() {
       // Store candidate name for the interview
       localStorage.setItem('guest_candidate_name', name);
       
+      // Store final language choice
+      const finalLanguage = invitation.language === "candidate_choice" ? selectedLanguage : invitation.language || "fr";
+      localStorage.setItem('interview_language', finalLanguage);
+      console.log(`Stored final interview language: ${finalLanguage}`);
+      
       console.log('Stored candidate and job information in localStorage:', {
         name: name,
         jobTitle: invitation.job_title,
         company: invitation.company_name,
-        jobOfferId: invitation.job_offer_id
+        jobOfferId: invitation.job_offer_id,
+        language: finalLanguage
       });
       
       // Store application ID if returned
@@ -367,6 +395,40 @@ export default function GuestApplyPage() {
                     value={phone} 
                     onChange={(e) => setPhone(e.target.value)} 
                   />
+                </div>
+
+                {/* Language section - always show */}
+                <div className="space-y-2">
+                  <Label htmlFor="language">Interview Language</Label>
+                  {invitation.language === "candidate_choice" ? (
+                    // Candidate can choose language
+                    <>
+                      <Select value={selectedLanguage} onValueChange={(value: "fr" | "en") => setSelectedLanguage(value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your preferred language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fr">Français (French)</SelectItem>
+                          <SelectItem value="en">English</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Choose your preferred language for the interview
+                      </p>
+                    </>
+                  ) : (
+                    // Language is pre-selected by recruiter
+                    <>
+                      <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-md border">
+                        <div className="text-sm font-medium">
+                          {invitation.language === "en" ? "English" : "Français (French)"}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Interview language has been pre-selected by the recruiter
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-2">

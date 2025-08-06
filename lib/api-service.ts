@@ -781,3 +781,34 @@ export async function checkReportStatus(reportId: number): Promise<{status: stri
     throw error;
   }
 }
+
+/**
+ * Delete a guest report and reset the interview status
+ */
+export async function deleteGuestReport(reportId: number): Promise<{message: string, report_id: number, interview_id: number}> {
+  try {
+    const companyToken = localStorage.getItem('karzo_company_token');
+    
+    if (!companyToken) {
+      throw new Error('No company authentication token found');
+    }
+
+    const response = await fetch(`${API_URL}/api/company/reports/${reportId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${companyToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || 'Failed to delete report');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting report:', error);
+    throw error;
+  }
+}
