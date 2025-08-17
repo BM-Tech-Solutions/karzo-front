@@ -779,7 +779,7 @@ export default function AdminDashboardPage() {
                                                   <h3 className="font-medium text-sm">Score</h3>
                                                   <div className="mt-1 flex items-center">
                                                     <div className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800">
-                                                      {report?.score || 0}/100
+                                                      {((report?.score || 0) / 20).toFixed(1)}/5
                                                     </div>
                                                   </div>
                                                 </div>

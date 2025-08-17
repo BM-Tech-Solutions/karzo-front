@@ -173,7 +173,7 @@ export default function InterviewHistoryPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <p className="text-sm text-muted-foreground">Average Score</p>
-                      <p className="text-2xl font-bold">85/100</p>
+                      <p className="text-2xl font-bold">4.3/5</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-sm text-muted-foreground">Interviews Completed</p>
