@@ -197,7 +197,7 @@ export default function CandidatesPage() {
                       {candidate.interview_score !== undefined && (
                         <div>
                           <p className="text-sm text-muted-foreground">Interview Score</p>
-                          <p className="font-medium">{candidate.interview_score}/100</p>
+                          <p className="font-medium">{(candidate.interview_score / 20).toFixed(1)}/5</p>
                         </div>
                       )}
                     </div>

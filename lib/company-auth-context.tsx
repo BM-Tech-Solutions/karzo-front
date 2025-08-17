@@ -13,6 +13,7 @@ export interface Company {
   sector?: string
   about?: string
   website?: string
+  api_key?: string | null
 }
 
 interface CompanyAuthContextType {

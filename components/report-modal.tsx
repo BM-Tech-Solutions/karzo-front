@@ -100,12 +100,116 @@ export function ReportModal({ isOpen, onClose, reportId, interviewId }: ReportMo
             {report.report_content ? (
               <div className="space-y-6">
                 {(() => {
+                  // Normalize report_content: handle cases where backend returned a JSON-stringified object {"report_content": "..."}
+                  let normalizedContent = report.report_content || ''
+                  
+                  try {
+                    // Handle different data types
+                    if (typeof normalizedContent === 'object' && normalizedContent !== null) {
+                      // If it's already an object, extract report_content directly
+                      const contentObj = normalizedContent as any
+                      if (contentObj.report_content) {
+                        normalizedContent = contentObj.report_content
+                        console.log('Extracted report_content from object directly')
+                      } else {
+                        // If it's an object but no report_content field, stringify it
+                        normalizedContent = JSON.stringify(normalizedContent)
+                      }
+                    } else if (typeof normalizedContent === 'string') {
+                      const trimmed = normalizedContent.trim()
+                      
+                      // Check if it's a JSON string that needs parsing
+                      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                        console.log('Parsing JSON string:', trimmed.substring(0, 100))
+                        const parsed = JSON.parse(trimmed)
+                        
+                        // Extract report_content from parsed object
+                        if (parsed && typeof parsed === 'object' && parsed.report_content) {
+                          normalizedContent = parsed.report_content
+                          console.log('Successfully extracted report_content from JSON')
+                        } else {
+                          console.log('No report_content field found in parsed JSON, using parsed object as string')
+                          normalizedContent = JSON.stringify(parsed)
+                        }
+                      }
+                      // If it doesn't start with {, it's likely already the content
+                      else if (!trimmed.startsWith('{')) {
+                        console.log('Content appears to be plain text, using as-is')
+                      } else {
+                        // Handle malformed JSON - try regex extraction
+                        const match = trimmed.match(/"report_content":\s*"([^"]*(?:\\.[^"]*)*)"/);
+                        if (match) {
+                          normalizedContent = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                          console.log('Used regex to extract report_content from malformed JSON');
+                        }
+                      }
+                    }
+                    
+                    // Final check: ensure we have string content and handle escaped characters
+                    if (typeof normalizedContent !== 'string') {
+                      normalizedContent = JSON.stringify(normalizedContent)
+                    }
+                    
+                    // Clean up escaped characters if present
+                    normalizedContent = normalizedContent
+                      .replace(/\\n/g, '\n')
+                      .replace(/\\"/g, '"')
+                      .replace(/\\\\/g, '\\')
+                      .replace(/\\t/g, '\t')
+                    
+                    console.log('Final normalized content preview:', normalizedContent.substring(0, 300))
+                  } catch (e) {
+                    console.warn('Error during normalization, using fallback:', e)
+                    // Fallback: try regex extraction from stringified version
+                    const originalStr = typeof normalizedContent === 'object' ? JSON.stringify(normalizedContent) : normalizedContent.toString()
+                    const match = originalStr.match(/"report_content":\s*"([^"]*(?:\\.[^"]*)*)"/);
+                    if (match) {
+                      normalizedContent = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                      console.log('Used regex fallback to extract content');
+                    } else {
+                      normalizedContent = originalStr.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                      console.log('No extraction possible, using raw content with escape cleanup');
+                    }
+                  }
+
                   // Parse the report content into sections
                   console.log('Report candidate_name:', report.candidate_name)
-                  console.log('Original report content:', report.report_content.substring(0, 500))
-                  
-                  let content = report.report_content
-                    // Replace candidate name with actual candidate name (try different patterns)
+                  console.log('Original report content (normalized):', normalizedContent.substring(0, 500))
+
+                  // Detect if content includes markdown-like structure (headers/bold/bullets)
+                  const hasMarkdown = /(^#+\s|^\#{1,3}\s|\*\*|^\-\s|^•\s)/m.test(normalizedContent)
+
+                  console.log('Markdown detection result:', hasMarkdown)
+                  console.log('Content being tested for markdown:', normalizedContent.substring(0, 200))
+
+                  if (!hasMarkdown) {
+                    // Plain text layout: render as a single section preserving line breaks
+                    const plain = normalizedContent
+                    return [
+                      (
+                        <div key="plain" className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                          <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
+                            <h2 className="text-xl font-bold text-blue-800 flex items-center gap-3">
+                              <div className="w-1 h-6 rounded-full bg-blue-500" />
+                              Rapport
+                            </h2>
+                          </div>
+                          <div className="p-6">
+                            <div
+                              className="prose prose-sm max-w-none text-slate-700 whitespace-pre-line leading-relaxed"
+                              dangerouslySetInnerHTML={{ __html: plain.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>') }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    ]
+                  }
+
+                  let content = normalizedContent
+                    // Replace candidate name with actual candidate name (comprehensive patterns)
+                    .replace(/- Candidat : Non mentionné\(e\)/gi, `- Candidat : ${report.candidate_name || 'Nom non disponible'}`)
+                    .replace(/\*\*Candidat\*\* : Non mentionné\(e\)/gi, `**Candidat** : ${report.candidate_name || 'Nom non disponible'}`)
+                    .replace(/- Candidat : \[.*?\]/g, `- Candidat : ${report.candidate_name || 'Nom non disponible'}`)
                     .replace(/\*\*Candidat\*\* : \[.*?\]/g, `**Candidat** : ${report.candidate_name || 'Nom non disponible'}`)
                     .replace(/\*\*Candidat\*\* : [^\n]*/g, `**Candidat** : ${report.candidate_name || 'Nom non disponible'}`)
                     .replace(/- \*\*Candidat\*\* : \[.*?\]/g, `- **Candidat** : ${report.candidate_name || 'Nom non disponible'}`)
@@ -117,11 +221,11 @@ export function ReportModal({ isOpen, onClose, reportId, interviewId }: ReportMo
                     // Remove empty bracket content but keep structure
                     .replace(/\*\*\[([^\]]+)\]\*\*/g, '**$1**')
                     .replace(/\[([^\]]+)\]/g, '$1')
-                  
+
                   console.log('Processed content:', content.substring(0, 500))
-                  
+
                   const sections = content.split(/(?=^##? )/gm).filter(section => section.trim())
-                  
+
                   return sections.map((section, index) => {
                     const lines = section.trim().split('\n')
                     const title = lines[0].replace(/^##? /, '').trim()
@@ -246,7 +350,7 @@ export function ReportModal({ isOpen, onClose, reportId, interviewId }: ReportMo
                 <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
                   <h3 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-indigo-500 pl-3 bg-indigo-50 py-2 rounded-r-lg">Score</h3>
                   <div className="flex items-center gap-4">
-                    <div className="text-3xl font-bold text-slate-800">{report.score ?? 0}<span className="text-lg text-slate-500">/100</span></div>
+                    <div className="text-3xl font-bold text-slate-800">{((report.score ?? 0) / 20).toFixed(1)}<span className="text-lg text-slate-500">/5</span></div>
                     <div className="flex-1">
                       <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
                         <div 
@@ -255,7 +359,7 @@ export function ReportModal({ isOpen, onClose, reportId, interviewId }: ReportMo
                             (report.score ?? 0) >= 60 ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' : 
                             'bg-gradient-to-r from-red-500 to-red-600'
                           }`} 
-                          style={{ width: `${report.score ?? 0}%` }}
+                          style={{ width: `${(report.score ?? 0)}%` }}
                         />
                       </div>
                       <div className="text-sm text-slate-500 mt-1">

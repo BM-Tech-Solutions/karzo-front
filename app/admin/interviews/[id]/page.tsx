@@ -212,7 +212,7 @@ export default function InterviewDetailPage({ params }: InterviewDetailPageProps
                           </div>
                           <div>
                             <p className="font-medium">Score</p>
-                            <p className="text-sm text-muted-foreground">{interview.score}/100</p>
+                            <p className="text-sm text-muted-foreground">{(interview.score / 20).toFixed(1)}/5</p>
                           </div>
                         </div>
                       )}
@@ -326,28 +326,28 @@ export default function InterviewDetailPage({ params }: InterviewDetailPageProps
                           <div className="space-y-2">
                             <div className="flex justify-between">
                               <Label>Technical Skills</Label>
-                              <span className="text-sm font-medium">{assessment.technicalSkills}/100</span>
+                              <span className="text-sm font-medium">{(assessment.technicalSkills / 20).toFixed(1)}/5</span>
                             </div>
                             <Progress value={assessment.technicalSkills} className="h-2" />
                           </div>
                           <div className="space-y-2">
                             <div className="flex justify-between">
                               <Label>Communication</Label>
-                              <span className="text-sm font-medium">{assessment.communication}/100</span>
+                              <span className="text-sm font-medium">{(assessment.communication / 20).toFixed(1)}/5</span>
                             </div>
                             <Progress value={assessment.communication} className="h-2" />
                           </div>
                           <div className="space-y-2">
                             <div className="flex justify-between">
                               <Label>Problem Solving</Label>
-                              <span className="text-sm font-medium">{assessment.problemSolving}/100</span>
+                              <span className="text-sm font-medium">{(assessment.problemSolving / 20).toFixed(1)}/5</span>
                             </div>
                             <Progress value={assessment.problemSolving} className="h-2" />
                           </div>
                           <div className="space-y-2">
                             <div className="flex justify-between">
                               <Label>Cultural Fit</Label>
-                              <span className="text-sm font-medium">{assessment.culturalFit}/100</span>
+                              <span className="text-sm font-medium">{(assessment.culturalFit / 20).toFixed(1)}/5</span>
                             </div>
                             <Progress value={assessment.culturalFit} className="h-2" />
                           </div>
@@ -355,7 +355,7 @@ export default function InterviewDetailPage({ params }: InterviewDetailPageProps
                           <div className="space-y-2">
                             <div className="flex justify-between">
                               <Label className="font-bold">Overall Score</Label>
-                              <span className="text-sm font-bold">{assessment.overallScore}/100</span>
+                              <span className="text-sm font-bold">{(assessment.overallScore / 20).toFixed(1)}/5</span>
                             </div>
                             <Progress value={assessment.overallScore} className="h-3" />
                           </div>

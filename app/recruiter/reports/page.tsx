@@ -20,6 +20,7 @@ interface Report {
   created_at: string
   score?: number
   error_message?: string
+  report_content?: string
 }
 
 export default function ReportsPage() {
@@ -122,6 +123,18 @@ export default function ReportsPage() {
     }
   }
 
+  // Extract the global score from plain-text report content: e.g. "Score global : 3.0/5"
+  const parseGlobalScoreFromContent = (content?: string): number | null => {
+    if (!content) return null
+    const regex = /score\s*global\s*[:\-]?\s*(\d(?:[\.,]\d)?)\s*\/\s*5/i
+    const m = content.match(regex)
+    if (!m) return null
+    const raw = m[1].replace(',', '.')
+    const val = parseFloat(raw)
+    if (isNaN(val)) return null
+    return Math.round(Math.max(0, Math.min(5, val)) * 20)
+  }
+
   return (
     <div className="flex h-screen">
       <RecruiterSidebar items={sidebarItems} className="w-64" />
@@ -188,7 +201,13 @@ export default function ReportsPage() {
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Score</p>
-                        <p className="font-medium">{report.score ? `${report.score}/100` : 'N/A'}</p>
+                        {(() => {
+                          const parsed = parseGlobalScoreFromContent(report.report_content)
+                          const display = typeof parsed === 'number' ? parsed : (typeof report.score === 'number' ? report.score : null)
+                          return (
+                            <p className="font-medium">{typeof display === 'number' ? `${(display / 20).toFixed(1)}/5` : 'N/A'}</p>
+                          )
+                        })()}
                       </div>
                     </div>
                     {report.status === "failed" && (

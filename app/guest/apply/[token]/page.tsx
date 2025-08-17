@@ -12,6 +12,12 @@ import { API_BASE_URL } from "@/lib/config"
 import { AlertCircle, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+interface ExistingCandidate {
+  id: number
+  full_name: string
+  phone?: string
+}
+
 interface InvitationDetails {
   id: number
   token: string
@@ -24,6 +30,9 @@ interface InvitationDetails {
   expires_at: string
   message?: string
   candidate_email: string
+  // Candidate existence check
+  candidate_exists?: boolean
+  existing_candidate?: ExistingCandidate
   // Language field
   language?: "fr" | "en" | "candidate_choice"
   // External company fields
@@ -50,6 +59,8 @@ export default function GuestApplyPage() {
   const [coverLetter, setCoverLetter] = useState("")
   const [selectedLanguage, setSelectedLanguage] = useState<"fr" | "en">("fr")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCreatingInterview, setIsCreatingInterview] = useState(false)
+  const [resumeSelected, setResumeSelected] = useState(false)
 
   // Fetch invitation details
   useEffect(() => {
@@ -166,6 +177,13 @@ export default function GuestApplyPage() {
           console.log(`Pre-filling email: ${data.candidate_email}`)
           setEmail(data.candidate_email)
         }
+
+        // Pre-fill candidate information if candidate exists
+        if (data.candidate_exists && data.existing_candidate) {
+          console.log(`Existing candidate found: ${data.existing_candidate.full_name}`)
+          setName(data.existing_candidate.full_name)
+          setPhone(data.existing_candidate.phone || "")
+        }
         
       } catch (err: any) {
         console.error("Error fetching invitation:", err)
@@ -178,11 +196,100 @@ export default function GuestApplyPage() {
     fetchInvitation()
   }, [token])
 
+  const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    setResumeSelected(!!file)
+  }
+
+  const handleExistingCandidateInterview = async () => {
+    if (!invitation || !invitation.existing_candidate) return
+    
+    setIsCreatingInterview(true)
+    
+    try {
+      // Create guest interview for existing candidate
+      const response = await fetch(`${API_BASE_URL}/api/applications/existing-candidate-interview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          guest_candidate_id: invitation.existing_candidate.id,
+          invitation_token: token,
+          job_offer_id: invitation.job_offer_id
+        })
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || "Failed to create interview for existing candidate")
+      }
+      
+      const interviewData = await response.json()
+      
+      // Store necessary information in localStorage for the interview flow
+      if (invitation.job_offer_id) {
+        localStorage.setItem('interview_job_id', invitation.job_offer_id.toString())
+      }
+      if (invitation.job_title) {
+        localStorage.setItem('interview_job_title', invitation.job_title)
+      }
+      if (invitation.company_name) {
+        localStorage.setItem('interview_company', invitation.company_name)
+      }
+      
+      // Store candidate name for the interview
+      localStorage.setItem('guest_candidate_name', invitation.existing_candidate.full_name)
+      
+      // Store final language choice
+      const finalLanguage = invitation.language === "candidate_choice" ? selectedLanguage : invitation.language || "fr"
+      localStorage.setItem('interview_language', finalLanguage)
+      
+      // Store guest interview ID
+      if (interviewData.guest_interview_id) {
+        localStorage.setItem('guest_interview_id', interviewData.guest_interview_id.toString())
+      }
+      
+      console.log('Stored interview information for existing candidate:', {
+        name: invitation.existing_candidate.full_name,
+        jobTitle: invitation.job_title,
+        company: invitation.company_name,
+        jobOfferId: invitation.job_offer_id,
+        language: finalLanguage
+      })
+      
+      // Redirect to interview room
+      router.push("/interview/room")
+      
+    } catch (error: any) {
+      console.error("Error creating interview for existing candidate:", error)
+      setError(error.message || "Failed to create interview")
+    } finally {
+      setIsCreatingInterview(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!invitation || !name || !email) {
+    if (!invitation || !email) {
       return
+    }
+
+    // For new candidates, require name, phone, and resume
+    if (!invitation.candidate_exists) {
+      if (!name || !phone) {
+        setError("Full Name and Phone Number are required for new candidates")
+        return
+      }
+      
+      // Check if resume is uploaded
+      const resumeInput = document.getElementById('resume') as HTMLInputElement
+      const resumeFile = resumeInput.files?.[0]
+      if (!resumeFile) {
+        setError("Resume is required for new candidates")
+        return
+      }
     }
     
     setIsSubmitting(true)
@@ -337,7 +444,9 @@ export default function GuestApplyPage() {
     <div className="flex min-h-screen flex-col">
       <main className="flex-1 container py-8">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl font-bold tracking-tight mb-6">Apply for Position</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-6">
+            {invitation.candidate_exists ? 'Welcome Back!' : 'Apply for Position'}
+          </h1>
           
           {invitation.message && (
             <Card className="mb-6">
@@ -350,25 +459,78 @@ export default function GuestApplyPage() {
             </Card>
           )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Application Details</CardTitle>
-              <CardDescription>
-                Complete the form below to apply for 
-                {invitation.job_title ? ` the ${invitation.job_title} position at ` : ' a position at '}
-                {invitation.company_name}
-              </CardDescription>
-            </CardHeader>
+          {/* Existing Candidate Flow */}
+          {invitation.candidate_exists && invitation.existing_candidate ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Welcome Back, {invitation.existing_candidate.full_name}!</CardTitle>
+                <CardDescription>
+                  We found your profile in our system. You can proceed directly to the interview for 
+                  {invitation.job_title ? ` the ${invitation.job_title} position at ` : ' a position at '}
+                  {invitation.company_name}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Your Information:</h4>
+                  <p><strong>Name:</strong> {invitation.existing_candidate.full_name}</p>
+                  <p><strong>Email:</strong> {invitation.candidate_email}</p>
+                  {invitation.existing_candidate.phone && (
+                    <p><strong>Phone:</strong> {invitation.existing_candidate.phone}</p>
+                  )}
+                </div>
+
+                {/* Language selection for existing candidates */}
+                {invitation.language === "candidate_choice" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="language">Interview Language</Label>
+                    <Select value={selectedLanguage} onValueChange={(value: "fr" | "en") => setSelectedLanguage(value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your preferred language" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fr">Français (French)</SelectItem>
+                        <SelectItem value="en">English</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Choose your preferred language for the interview</p>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="flex justify-between">
+                <Button variant="outline" onClick={() => router.back()}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleExistingCandidateInterview}
+                  disabled={isCreatingInterview}
+                >
+                  {isCreatingInterview ? "Starting Interview..." : "Start Interview"}
+                </Button>
+              </CardFooter>
+            </Card>
+          ) : (
+            /* New Candidate Flow */
+            <Card>
+              <CardHeader>
+                <CardTitle>Application Details</CardTitle>
+                <CardDescription>
+                  Complete the form below to apply for 
+                  {invitation.job_title ? ` the ${invitation.job_title} position at ` : ' a position at '}
+                  {invitation.company_name}
+                </CardDescription>
+              </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name">Full Name *</Label>
                   <Input 
                     id="name" 
                     value={name} 
                     onChange={(e) => setName(e.target.value)} 
                     required 
                   />
+                  <p className="text-xs text-muted-foreground">Required for new candidates</p>
                 </div>
 
                 <div className="space-y-2">
@@ -389,12 +551,48 @@ export default function GuestApplyPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label htmlFor="phone">Phone Number *</Label>
                   <Input 
                     id="phone" 
                     value={phone} 
                     onChange={(e) => setPhone(e.target.value)} 
+                    required
                   />
+                  <p className="text-xs text-muted-foreground">Required for new candidates</p>
+                </div>
+
+                {/* Language section - always show */}
+                <div className="space-y-2">
+                  <Label htmlFor="language">Interview Language</Label>
+                  {invitation.language === "candidate_choice" ? (
+                    // Candidate can choose language
+                    <>
+                      <Select value={selectedLanguage} onValueChange={(value: "fr" | "en") => setSelectedLanguage(value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your preferred language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fr">Français (French)</SelectItem>
+                          <SelectItem value="en">English</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Choose your preferred language for the interview
+                      </p>
+                    </>
+                  ) : (
+                    // Language is pre-selected by recruiter
+                    <>
+                      <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-md border">
+                        <div className="text-sm font-medium">
+                          {invitation.language === "en" ? "English" : "Français (French)"}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Interview language has been pre-selected by the recruiter
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 {/* Language section - always show */}
@@ -443,10 +641,16 @@ export default function GuestApplyPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="resume">Resume</Label>
-                  <Input id="resume" type="file" />
+                  <Label htmlFor="resume">Resume *</Label>
+                  <Input 
+                    id="resume" 
+                    type="file" 
+                    required 
+                    onChange={handleResumeChange}
+                    accept=".pdf,.doc,.docx"
+                  />
                   <p className="text-sm text-muted-foreground">
-                    Upload your resume (PDF, DOC, or DOCX)
+                    Required for new candidates (PDF, DOC, or DOCX)
                   </p>
                 </div>
               </form>
@@ -457,12 +661,13 @@ export default function GuestApplyPage() {
               </Button>
               <Button 
                 onClick={handleSubmit} 
-                disabled={!name || !email || isSubmitting}
+                disabled={!name || !email || !phone || !resumeSelected || isSubmitting}
               >
                 {isSubmitting ? "Submitting..." : "Submit Application"}
               </Button>
             </CardFooter>
           </Card>
+          )}
         </div>
       </main>
     </div>

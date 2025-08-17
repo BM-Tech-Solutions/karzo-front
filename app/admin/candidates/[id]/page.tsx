@@ -151,28 +151,28 @@ export default function CandidateDetailPage({ params }: CandidatePageProps) {
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>Technical Skills</span>
-                          <span className="font-medium">85/100</span>
+                          <span className="font-medium">4.3/5</span>
                         </div>
                         <Progress value={85} className="h-2" />
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>Communication</span>
-                          <span className="font-medium">90/100</span>
+                          <span className="font-medium">4.5/5</span>
                         </div>
                         <Progress value={90} className="h-2" />
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>Problem Solving</span>
-                          <span className="font-medium">80/100</span>
+                          <span className="font-medium">4.0/5</span>
                         </div>
                         <Progress value={80} className="h-2" />
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span>Cultural Fit</span>
-                          <span className="font-medium">85/100</span>
+                          <span className="font-medium">4.3/5</span>
                         </div>
                         <Progress value={85} className="h-2" />
                       </div>
@@ -227,7 +227,7 @@ export default function CandidateDetailPage({ params }: CandidatePageProps) {
                                 <div className="flex items-center gap-2">
                                   {interview.score && (
                                     <div className="bg-primary/10 text-primary px-2 py-1 rounded-md text-sm font-medium">
-                                      Score: {interview.score}/100
+                                      Score: {(interview.score / 20).toFixed(1)}/5
                                     </div>
                                   )}
                                   <Button variant="outline" size="sm" asChild>
@@ -381,7 +381,7 @@ export default function CandidateDetailPage({ params }: CandidatePageProps) {
                               <span className="text-sm text-muted-foreground">May 15, 2023</span>
                             </div>
                             <p className="text-sm">
-                              Candidate completed AI interview with a score of 85/100. Recommended for next round.
+                              Candidate completed AI interview with a score of 4.3/5. Recommended for next round.
                             </p>
                           </div>
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { RecruiterSidebar } from "@/components/recruiter-sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { useCompanyAuth } from "@/lib/company-auth-context"
 import { fetchWithCompanyAuth } from "@/lib/company-auth-context"
 import { API_BASE_URL } from "@/lib/config"
@@ -17,6 +18,9 @@ export default function RecruiterDashboard() {
   })
   const [upcomingInterviews, setUpcomingInterviews] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     async function fetchDashboardData() {
@@ -45,6 +49,26 @@ export default function RecruiterDashboard() {
         } else {
           console.error("Failed to fetch upcoming interviews:", interviewsResponse.statusText)
         }
+
+        // Fetch current company to get api_key
+        const meResponse = await fetchWithCompanyAuth(`${API_BASE_URL}/api/company/me`)
+        if (meResponse.ok) {
+          const me = await meResponse.json()
+          setApiKey(me.api_key || null)
+          // Sync localStorage company object with latest api_key
+          if (typeof window !== 'undefined') {
+            try {
+              const stored = localStorage.getItem('karzo_company')
+              if (stored) {
+                const parsed = JSON.parse(stored)
+                parsed.api_key = me.api_key || null
+                localStorage.setItem('karzo_company', JSON.stringify(parsed))
+              }
+            } catch (e) {
+              console.error('Failed to sync api_key to localStorage company:', e)
+            }
+          }
+        }
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error)
       } finally {
@@ -54,6 +78,49 @@ export default function RecruiterDashboard() {
 
     fetchDashboardData()
   }, [])
+
+  async function handleGenerateApiKey() {
+    setIsGenerating(true)
+    setCopied(false)
+    try {
+      const res = await fetchWithCompanyAuth(`${API_BASE_URL}/api/company/api-key`, { method: 'POST' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || 'Failed to generate API key')
+      }
+      const data = await res.json()
+      setApiKey(data.api_key)
+      // Update localStorage company object
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = localStorage.getItem('karzo_company')
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            parsed.api_key = data.api_key
+            localStorage.setItem('karzo_company', JSON.stringify(parsed))
+          }
+        } catch (e) {
+          console.error('Failed to store api_key in localStorage:', e)
+        }
+      }
+    } catch (e) {
+      console.error(e)
+      alert((e as Error).message)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  async function handleCopy() {
+    if (!apiKey) return
+    try {
+      await navigator.clipboard.writeText(apiKey)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (e) {
+      console.error('Copy failed', e)
+    }
+  }
 
   const sidebarItems = [
     {
@@ -174,6 +241,29 @@ export default function RecruiterDashboard() {
               </div>
 
               <div className="grid gap-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <div>
+                      <CardTitle className="text-sm font-medium">API Key</CardTitle>
+                      <CardDescription>Use this key to authenticate API calls.</CardDescription>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 rounded bg-muted/50 px-2 py-2 text-sm break-all select-all">
+                          {apiKey ? apiKey : 'No API key yet'}
+                        </code>
+                        <Button variant="secondary" onClick={handleCopy} disabled={!apiKey}>{copied ? 'Copied' : 'Copy'}</Button>
+                      </div>
+                      <div>
+                        <Button onClick={handleGenerateApiKey} disabled={isGenerating}>
+                          {isGenerating ? 'Generating...' : (apiKey ? 'Regenerate API Key' : 'Generate API Key')}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
                 <Card>
                   <CardHeader>
                     <CardTitle>Upcoming Interviews</CardTitle>
