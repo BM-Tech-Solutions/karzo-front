@@ -595,6 +595,40 @@ export default function GuestApplyPage() {
                   )}
                 </div>
 
+                {/* Language section - always show */}
+                <div className="space-y-2">
+                  <Label htmlFor="language">Interview Language</Label>
+                  {invitation.language === "candidate_choice" ? (
+                    // Candidate can choose language
+                    <>
+                      <Select value={selectedLanguage} onValueChange={(value: "fr" | "en") => setSelectedLanguage(value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your preferred language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fr">Français (French)</SelectItem>
+                          <SelectItem value="en">English</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Choose your preferred language for the interview
+                      </p>
+                    </>
+                  ) : (
+                    // Language is pre-selected by recruiter
+                    <>
+                      <div className="flex items-center space-x-2 p-3 bg-muted/50 rounded-md border">
+                        <div className="text-sm font-medium">
+                          {invitation.language === "en" ? "English" : "Français (French)"}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Interview language has been pre-selected by the recruiter
+                      </p>
+                    </>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="coverLetter">Cover Letter</Label>
                   <Textarea
