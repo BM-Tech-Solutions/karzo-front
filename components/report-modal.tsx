@@ -18,6 +18,7 @@ interface Report {
   id: number
   content: any[] | string | null
   report_content?: string | null  // New structured French report
+  language_level?: string | null  // Language proficiency level
   summary: string | null
   strengths: any[] | null
   weaknesses: any[] | null
@@ -367,6 +368,43 @@ export function ReportModal({ isOpen, onClose, reportId, interviewId }: ReportMo
                          (report.score ?? 0) >= 60 ? 'Good' : 
                          'Needs Improvement'}
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Language Level Section - shown for both old and new formats */}
+            {report.language_level && (
+              <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-l-4 border-cyan-500 pl-3 bg-cyan-50 py-2 rounded-r-lg">Language Level</h3>
+                <div className="flex items-center gap-4">
+                  <div className="text-2xl font-bold text-slate-800">{report.language_level}</div>
+                  <div className="flex-1">
+                    <div className="text-sm text-slate-600">
+                      {report.language_level === 'Beginner' ? 'Basic understanding, limited vocabulary' :
+                       report.language_level === 'Elementary' ? 'Simple conversations, basic grammar' :
+                       report.language_level === 'Intermediate' ? 'Good comprehension, decent fluency' :
+                       report.language_level === 'Upper-Intermediate' ? 'Strong communication, minor errors' :
+                       report.language_level === 'Advanced' ? 'Excellent fluency, near-native proficiency' :
+                       'Language proficiency assessed from interview'}
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden mt-2">
+                      <div 
+                        className={`h-full transition-all duration-500 ${
+                          report.language_level === 'Advanced' ? 'bg-gradient-to-r from-green-500 to-green-600' :
+                          report.language_level === 'Upper-Intermediate' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
+                          report.language_level === 'Intermediate' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' :
+                          report.language_level === 'Elementary' ? 'bg-gradient-to-r from-orange-500 to-orange-600' :
+                          'bg-gradient-to-r from-red-500 to-red-600'
+                        }`}
+                        style={{ 
+                          width: report.language_level === 'Advanced' ? '100%' :
+                                 report.language_level === 'Upper-Intermediate' ? '80%' :
+                                 report.language_level === 'Intermediate' ? '60%' :
+                                 report.language_level === 'Elementary' ? '40%' : '20%'
+                        }}
+                      />
                     </div>
                   </div>
                 </div>

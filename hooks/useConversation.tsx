@@ -11,15 +11,33 @@ interface ConversationInfo {
   endSession: () => Promise<void>;
 }
 
+interface CompanyInfo {
+  name: string;
+  size: string;
+  sector: string;
+  about: string;
+  website: string;
+}
+
 interface FormData {
   jobOffer: string;
   fullName: string;
   candidateSummary?: string;
+  // New company structure
+  currentCompany?: CompanyInfo;
+  externalCompany?: CompanyInfo | null;
+  // Legacy fields for backward compatibility
   companyName?: string;
   companySize?: string;
   companySector?: string;
   companyAbout?: string;
   companyWebsite?: string;
+  // External company fields
+  external_company_name?: string;
+  external_company_size?: string;
+  external_company_sector?: string;
+  external_company_about?: string;
+  external_company_website?: string;
   jobOfferQuestions?: string[];
   language?: "fr" | "en";
   // TTS parameters for ElevenLabs voice configuration
@@ -134,6 +152,11 @@ export const useConversation = () => {
           company_sector: formData.companySector || '',
           company_about: formData.companyAbout || '',
           company_website: formData.companyWebsite || '',
+          external_company_name: formData.external_company_name || '',
+          external_company_size: formData.external_company_size || '',
+          external_company_sector: formData.external_company_sector || '',
+          external_company_about: formData.external_company_about || '',
+          external_company_website: formData.external_company_website || '',
           joboffer_questions: formData.jobOfferQuestions && Array.isArray(formData.jobOfferQuestions) && formData.jobOfferQuestions.length > 0 ? JSON.stringify(formData.jobOfferQuestions) : '[]'
         },
         // Build overrides object for language and TTS parameters

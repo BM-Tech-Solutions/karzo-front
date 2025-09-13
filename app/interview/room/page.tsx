@@ -309,6 +309,61 @@ export default function InterviewRoomPage() {
 
   const [isStarting, setIsStarting] = useState(false);
 
+  // Function to fetch job details by name
+  const fetchJobDetails = async (id: string) => {
+    try {
+      // Get the authentication token from localStorage
+      const token = localStorage.getItem('karzo_token')
+      
+      // First try to fetch job offer details
+      const jobOfferResponse = await fetch(`${API_BASE_URL}/api/v1/job-offers/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (jobOfferResponse.ok) {
+        const jobData = await jobOfferResponse.json()
+        setJobTitle(jobData.title)
+        setCompany(jobData.company)
+        
+        // Store these values for future use
+        localStorage.setItem('interview_job_title', jobData.title)
+        localStorage.setItem('interview_company', jobData.company)
+        
+        // Store job requirements/questions if available
+        if (jobData.requirements && Array.isArray(jobData.requirements)) {
+          setJobRequirements(jobData.requirements)
+          localStorage.setItem('job_requirements', JSON.stringify(jobData.requirements))
+        }
+        
+        // Store job offer questions if available
+        if (jobData.questions && Array.isArray(jobData.questions)) {
+          localStorage.setItem('job_offer_questions', JSON.stringify(jobData.questions))
+          console.log(`Stored ${jobData.questions.length} job offer questions in localStorage`)
+        } else {
+          // Try to fetch job questions directly from our new API endpoint
+          try {
+            const questionsResponse = await fetch(`/api/job-questions?job_offer_id=${id}`)
+            if (questionsResponse.ok) {
+              const questionsData = await questionsResponse.json()
+              if (Array.isArray(questionsData)) {
+                // Extract just the question text from each question object
+                const questions = questionsData.map(q => q.question || q)
+                localStorage.setItem('job_offer_questions', JSON.stringify(questions))
+                console.log(`Stored ${questions.length} job offer questions from API endpoint`)
+              }
+            }
+          } catch (questionsError) {
+            console.error('Error fetching job questions:', questionsError)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching job details:', error)
+    }
+  }
+
   const handleStartInterview = async () => {
     try {
       setIsStarting(true);
@@ -371,69 +426,58 @@ export default function InterviewRoomPage() {
           }
           
           // If still no questions, try to use hardcoded questions for this specific job
-          if (jobOfferQuestions.length === 0 && jobTitle === 'Generative AI Engineer') {
-            console.log('Using hardcoded questions for Generative AI Engineer position');
-            jobOfferQuestions = [
-              'Prompt engineering',
-              'LangChain',
-              'fine-tuning an LLM vs. using RAG'
-            ];
-            localStorage.setItem('job_offer_questions', JSON.stringify(jobOfferQuestions));
+          try {
+            if (jobOfferQuestions.length === 0 && jobTitle === 'Generative AI Engineer') {
+              console.log('Using hardcoded questions for Generative AI Engineer position');
+              jobOfferQuestions = [
+                'Prompt engineering',
+                'LangChain',
+                'fine-tuning an LLM vs. using RAG'
+              ];
+              localStorage.setItem('job_offer_questions', JSON.stringify(jobOfferQuestions));
+            }
+          } catch (e) {
+            console.error('Error handling job offer questions:', e);
           }
         }
-      } catch (e) {
-        console.error('Error handling job offer questions:', e);
+      } catch (questionsOuterError) {
+        console.error('Error in outer job offer questions block:', questionsOuterError);
       }
+      
+      // Always get current company information (recruiting company)
+      let currentCompanyData = null;
+      try {
+        const storedCompany = localStorage.getItem('karzo_company');
+        if (storedCompany) {
+          currentCompanyData = JSON.parse(storedCompany);
+        }
+      } catch (error) {
+        console.error('Error parsing company data from localStorage:', error);
+      }
+      
+      const currentCompany = {
+        name: company || '',
+        size: currentCompanyData?.size || '',
+        sector: currentCompanyData?.sector || '',
+        about: currentCompanyData?.about || '',
+        website: currentCompanyData?.website || ''
+      };
       
       // Check if external company information is available in localStorage
       const externalCompanyName = localStorage.getItem('external_company_name');
+      const externalCompany = externalCompanyName ? {
+        name: externalCompanyName,
+        size: localStorage.getItem('external_company_size') || '',
+        sector: localStorage.getItem('external_company_sector') || '',
+        about: localStorage.getItem('external_company_about') || '',
+        website: localStorage.getItem('external_company_website') || ''
+      } : null;
       
-      // Simple logic: If external company exists, use ALL external company info, otherwise use regular company info
-      let effectiveCompanyName, effectiveCompanySize, effectiveCompanySector, effectiveCompanyAbout, effectiveCompanyWebsite;
-      
-      if (externalCompanyName) {
-        // Use external company information completely
-        effectiveCompanyName = externalCompanyName;
-        effectiveCompanySize = localStorage.getItem('external_company_size') || '';
-        effectiveCompanySector = localStorage.getItem('external_company_sector') || '';
-        effectiveCompanyAbout = localStorage.getItem('external_company_about') || '';
-        effectiveCompanyWebsite = localStorage.getItem('external_company_website') || '';
-        
-        console.log('Using external company information for ElevenLabs:', {
-          name: effectiveCompanyName,
-          size: effectiveCompanySize,
-          sector: effectiveCompanySector,
-          about: effectiveCompanyAbout,
-          website: effectiveCompanyWebsite
-        });
-      } else {
-        // Use regular company information from stored company object
-        effectiveCompanyName = company || '';
-        
-        // Get company data from localStorage
-        let companyData = null;
-        try {
-          const storedCompany = localStorage.getItem('karzo_company');
-          if (storedCompany) {
-            companyData = JSON.parse(storedCompany);
-          }
-        } catch (error) {
-          console.error('Error parsing company data from localStorage:', error);
-        }
-        
-        effectiveCompanySize = companyData?.size || '';
-        effectiveCompanySector = companyData?.sector || '';
-        effectiveCompanyAbout = companyData?.about || '';
-        effectiveCompanyWebsite = companyData?.website || '';
-        
-        console.log('Using regular company information for ElevenLabs:', {
-          name: effectiveCompanyName,
-          size: effectiveCompanySize,
-          sector: effectiveCompanySector,
-          about: effectiveCompanyAbout,
-          website: effectiveCompanyWebsite
-        });
-      }
+      console.log('Company context for ElevenLabs:', {
+        currentCompany: currentCompany,
+        externalCompany: externalCompany,
+        hasExternalCompany: !!externalCompany
+      });
       
       // Get language from localStorage (set during invitation process)
       const interviewLanguage = localStorage.getItem('interview_language') as "fr" | "en" || "fr";
@@ -458,11 +502,22 @@ export default function InterviewRoomPage() {
         // Use user's full name if available, then try localStorage, then fallback to 'Candidate'
         fullName: user?.full_name || localStorage.getItem('guest_candidate_name') || 'Candidate',
         candidateSummary: candidateSummary || '',
-        companyName: effectiveCompanyName,
-        companySize: effectiveCompanySize,
-        companySector: effectiveCompanySector,
-        companyAbout: effectiveCompanyAbout,
-        companyWebsite: effectiveCompanyWebsite,
+        // Current company (recruiting company) information
+        currentCompany: currentCompany,
+        // External company information (if applicable)
+        externalCompany: externalCompany,
+        // Main company fields - ALWAYS use current recruiting company data
+        companyName: currentCompany.name,
+        companySize: currentCompany.size,
+        companySector: currentCompany.sector,
+        companyAbout: currentCompany.about,
+        companyWebsite: currentCompany.website,
+        // External company fields - individual fields for external company data
+        external_company_name: externalCompany?.name || '',
+        external_company_size: externalCompany?.size || '',
+        external_company_sector: externalCompany?.sector || '',
+        external_company_about: externalCompany?.about || '',
+        external_company_website: externalCompany?.website || '',
         jobOfferQuestions: JSON.parse(localStorage.getItem('job_offer_questions') || '[]'),
         language: interviewLanguage,
         // TTS parameters (only include if they exist)
@@ -506,8 +561,6 @@ export default function InterviewRoomPage() {
       }, 1000);
       
       setStartTime(Date.now());
-      
-      return () => clearInterval(timer); // Clean up timer when component unmounts
     } catch (error) {
       console.error('Error starting interview:', error);
       setIsStarting(false);
@@ -537,61 +590,6 @@ export default function InterviewRoomPage() {
     }
   };
 
-  // Add this function to fetch job details
-  const fetchJobDetails = async (id: string) => {
-    try {
-      // Get the authentication token from localStorage
-      const token = localStorage.getItem('karzo_token')
-      
-      // First try to fetch job offer details
-      const jobOfferResponse = await fetch(`${API_BASE_URL}/api/v1/job-offers/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      if (jobOfferResponse.ok) {
-        const jobData = await jobOfferResponse.json()
-        setJobTitle(jobData.title)
-        setCompany(jobData.company)
-        
-        // Store these values for future use
-        localStorage.setItem('interview_job_title', jobData.title)
-        localStorage.setItem('interview_company', jobData.company)
-        
-        // Store job requirements/questions if available
-        if (jobData.requirements && Array.isArray(jobData.requirements)) {
-          setJobRequirements(jobData.requirements)
-          localStorage.setItem('job_requirements', JSON.stringify(jobData.requirements))
-        }
-        
-        // Store job offer questions if available
-        if (jobData.questions && Array.isArray(jobData.questions)) {
-          localStorage.setItem('job_offer_questions', JSON.stringify(jobData.questions))
-          console.log(`Stored ${jobData.questions.length} job offer questions in localStorage`)
-        } else {
-          // Try to fetch job questions directly from our new API endpoint
-          try {
-            const questionsResponse = await fetch(`/api/job-questions?job_offer_id=${id}`)
-            if (questionsResponse.ok) {
-              const questionsData = await questionsResponse.json()
-              if (Array.isArray(questionsData)) {
-                // Extract just the question text from each question object
-                const questions = questionsData.map(q => q.question || q)
-                localStorage.setItem('job_offer_questions', JSON.stringify(questions))
-                console.log(`Stored ${questions.length} job offer questions from API endpoint`)
-              }
-            }
-          } catch (questionsError) {
-            console.error('Error fetching job questions:', questionsError)
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching job details:', error)
-    }
-  }
-  
   // The handleEndInterview function is already defined above
 
   return (
