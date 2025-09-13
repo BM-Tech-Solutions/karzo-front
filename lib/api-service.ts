@@ -538,43 +538,25 @@ export async function deleteReport(id: number): Promise<void> {
   }
 }
 
-/**
- * Delete a candidate by ID
- * @param id - The ID of the candidate to delete
- * @returns void
- */
-export async function deleteCandidate(id: number): Promise<void> {
-  try {
-    const url = `${API_URL}/api/candidates/${id}`;
-    console.log(`Deleting candidate with ID ${id}`);
-    
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('karzo_token') : ''}`
-      }
-    });
-    
-    if (!response.ok) {
-      let errorMessage = `Failed to delete candidate: ${response.status}`;
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.detail || errorMessage;
-      } catch (e) {
-        // If we can't parse JSON, use text
-        const errorText = await response.text();
-        if (errorText) errorMessage += ` - ${errorText}`;
-      }
-      throw new Error(errorMessage);
-    }
-    
-    console.log('Successfully deleted candidate:', id);
-  } catch (error) {
-    console.error('Error in deleteCandidate:', error);
-    throw error; // Re-throw the error to be handled by the caller
-  }
+
+// ==========================================
+// Company Forgot Password API
+// ==========================================
+export async function companyForgotPasswordRequest(email: string): Promise<{message: string}> {
+  const url = `${API_URL}/api/company/forgot-password/request`;
+  return apiRequest<{message: string}>(url, 'POST', { email });
 }
+
+export async function companyForgotPasswordVerify(email: string, code: string): Promise<{valid: boolean}> {
+  const url = `${API_URL}/api/company/forgot-password/verify`;
+  return apiRequest<{valid: boolean}>(url, 'POST', { email, code });
+}
+
+export async function companyForgotPasswordReset(email: string, code: string, new_password: string): Promise<{message: string}> {
+  const url = `${API_URL}/api/company/forgot-password/reset`;
+  return apiRequest<{message: string}>(url, 'POST', { email, code, new_password });
+}
+
 
 /**
  * Generate a report from an ElevenLabs transcript
