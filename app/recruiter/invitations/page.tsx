@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { useCompanyAuth, fetchWithCompanyAuth } from "@/lib/company-auth-context"
 import { API_BASE_URL } from "@/lib/config"
 import { useForm } from "react-hook-form"
@@ -40,6 +41,7 @@ export default function InvitationsPage() {
       email: "",
       jobOfferId: undefined,
       message: "",
+      more_technical: false,
       isExternalCompany: false,
       externalCompanyName: "",
       externalCompanyEmail: "",
@@ -87,7 +89,8 @@ export default function InvitationsPage() {
       const invitationData: any = {
         email: values.email,
         job_offer_id: values.jobOfferId,
-        message: values.message
+        message: values.message,
+        more_technical: values.more_technical
       }
 
       // Add external company data if selected
@@ -248,6 +251,30 @@ export default function InvitationsPage() {
                             />
                           </FormControl>
                           <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {/* More Technical Toggle */}
+                    <FormField
+                      control={form.control}
+                      name="more_technical"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                              More Technical Interview
+                            </FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              Enable this to make the interview more technically focused and challenging
+                            </p>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
                         </FormItem>
                       )}
                     />

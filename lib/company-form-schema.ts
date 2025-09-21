@@ -39,6 +39,8 @@ export const candidateInviteSchema = z.object({
   tts_stability: z.number().min(0).max(1).optional(),
   tts_speed: z.number().min(0.25).max(4.0).optional(),
   tts_similarity_boost: z.number().min(0).max(1).optional(),
+  // Technical interview parameter
+  more_technical: z.boolean().default(false),
   // External company fields
   isExternalCompany: z.boolean().default(false),
   externalCompanyName: z.string().optional(),

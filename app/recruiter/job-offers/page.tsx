@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { useCompanyAuth, fetchWithCompanyAuth } from "@/lib/company-auth-context"
@@ -80,6 +81,8 @@ export default function JobOffersPage() {
     tts_stability: z.number().min(0).max(1).optional(),
     tts_speed: z.number().min(0.25).max(4.0).optional(),
     tts_similarity_boost: z.number().min(0).max(1).optional(),
+    // Technical interview parameter
+    more_technical: z.boolean().optional(),
     // External company fields
     isExternalCompany: z.boolean().optional(),
     externalCompanyName: z.string().optional(),
@@ -111,6 +114,8 @@ export default function JobOffersPage() {
       tts_stability: 0.5,
       tts_speed: 1.0,
       tts_similarity_boost: 0.8,
+      // Technical interview parameter default
+      more_technical: false,
       isExternalCompany: false,
       externalCompanyName: "",
       externalCompanyEmail: "",
@@ -210,30 +215,48 @@ export default function JobOffersPage() {
     
     try {
       setIsUpdating(true)
+      
+      // Debug logging
+      console.log('=== INVITATION FORM VALUES DEBUG ===');
+      console.log('Raw form values:', values);
+      console.log('more_technical value:', values.more_technical);
+      console.log('more_technical type:', typeof values.more_technical);
+      console.log('====================================');
+      
       const response = await fetchWithCompanyAuth(`${API_BASE_URL}/api/invitations/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          email: values.email,
-          job_offer_id: selectedJob.id,
-          language: values.language,
-          // Add TTS parameters
-          ...(values.tts_temperature !== undefined && { tts_temperature: values.tts_temperature }),
-          ...(values.tts_stability !== undefined && { tts_stability: values.tts_stability }),
-          ...(values.tts_speed !== undefined && { tts_speed: values.tts_speed }),
-          ...(values.tts_similarity_boost !== undefined && { tts_similarity_boost: values.tts_similarity_boost }),
-          // Add external company data if selected
-          ...(values.isExternalCompany && {
-            external_company_name: values.externalCompanyName,
-            ...(values.externalCompanyEmail && { external_company_email: values.externalCompanyEmail }),
-            ...(values.externalCompanySize && { external_company_size: values.externalCompanySize }),
-            ...(values.externalCompanySector && { external_company_sector: values.externalCompanySector }),
-            ...(values.externalCompanyAbout && { external_company_about: values.externalCompanyAbout }),
-            ...(values.externalCompanyWebsite && { external_company_website: values.externalCompanyWebsite })
-          })
-        }),
+        body: JSON.stringify((() => {
+          const requestBody = {
+            email: values.email,
+            job_offer_id: selectedJob.id,
+            language: values.language,
+            // Add TTS parameters
+            ...(values.tts_temperature !== undefined && { tts_temperature: values.tts_temperature }),
+            ...(values.tts_stability !== undefined && { tts_stability: values.tts_stability }),
+            ...(values.tts_speed !== undefined && { tts_speed: values.tts_speed }),
+            ...(values.tts_similarity_boost !== undefined && { tts_similarity_boost: values.tts_similarity_boost }),
+            // Add technical interview parameter
+            more_technical: values.more_technical || false,
+            // Add external company data if selected
+            ...(values.isExternalCompany && {
+              external_company_name: values.externalCompanyName,
+              ...(values.externalCompanyEmail && { external_company_email: values.externalCompanyEmail }),
+              ...(values.externalCompanySize && { external_company_size: values.externalCompanySize }),
+              ...(values.externalCompanySector && { external_company_sector: values.externalCompanySector }),
+              ...(values.externalCompanyAbout && { external_company_about: values.externalCompanyAbout }),
+              ...(values.externalCompanyWebsite && { external_company_website: values.externalCompanyWebsite })
+            })
+          };
+          
+          console.log('=== API REQUEST BODY DEBUG ===');
+          console.log('Final request body:', JSON.stringify(requestBody, null, 2));
+          console.log('==============================');
+          
+          return requestBody;
+        })()),
       })
       
       if (response.ok) {
@@ -679,6 +702,33 @@ export default function JobOffersPage() {
                   />
                 </div>
               </div>
+              
+              {/* More Technical Toggle */}
+              <FormField
+                control={inviteForm.control}
+                name="more_technical"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        More Technical Interview
+                      </FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Enable this to make the interview more technically focused and challenging
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={(value) => {
+                          console.log('Switch changed to:', value);
+                          field.onChange(value);
+                        }}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
               
               {/* External Company Section */}
               <FormField
