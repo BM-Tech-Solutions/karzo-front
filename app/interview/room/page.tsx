@@ -88,12 +88,7 @@ export default function InterviewRoomPage() {
         'guest_candidate_name',
         'interview_job_title',
         'interview_company',
-        'interview_language',
-        // TTS parameters
-        'interview_tts_temperature',
-        'interview_tts_stability',
-        'interview_tts_speed',
-        'interview_tts_similarity_boost',
+        'interview_more_technical',
         'company_size',
         'company_sector',
         'company_about',
@@ -496,6 +491,16 @@ export default function InterviewRoomPage() {
       console.log('TTS Similarity Boost:', ttsSimilarityBoost);
       console.log('========================================');
       
+      // Get more_technical parameter from localStorage (set by recruiter during invitation)
+      const moreTechnical = localStorage.getItem('interview_more_technical');
+      
+      console.log('=== MORE_TECHNICAL PARAMETER FROM LOCALSTORAGE ===');
+      console.log('More Technical raw:', moreTechnical);
+      console.log('More Technical type:', typeof moreTechnical);
+      console.log('More Technical (parsed):', moreTechnical === 'true');
+      console.log('More Technical boolean:', Boolean(moreTechnical === 'true'));
+      console.log('==================================================');
+      
       // Get form data for the conversation
       const formData = {
         jobOffer: jobTitle || '',
@@ -524,7 +529,9 @@ export default function InterviewRoomPage() {
         ...(ttsTemperature && { ttsTemperature: parseFloat(ttsTemperature) }),
         ...(ttsStability && { ttsStability: parseFloat(ttsStability) }),
         ...(ttsSpeed && { ttsSpeed: parseFloat(ttsSpeed) }),
-        ...(ttsSimilarityBoost && { ttsSimilarityBoost: parseFloat(ttsSimilarityBoost) })
+        ...(ttsSimilarityBoost && { ttsSimilarityBoost: parseFloat(ttsSimilarityBoost) }),
+        // Technical interview parameter
+        more_technical: moreTechnical === 'true'
       };
       
       // Debug: Log what we're sending to ElevenLabs
@@ -547,6 +554,7 @@ export default function InterviewRoomPage() {
       console.log('- job_offer_questions:', localStorage.getItem('job_offer_questions'));
       console.log('- guest_candidate_name:', localStorage.getItem('guest_candidate_name'));
       console.log('- interview_language:', localStorage.getItem('interview_language'));
+      console.log('- interview_more_technical:', localStorage.getItem('interview_more_technical'));
       console.log('===================================');
 
       // Start the conversation with ElevenLabs

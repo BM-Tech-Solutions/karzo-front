@@ -35,6 +35,8 @@ interface InvitationDetails {
   existing_candidate?: ExistingCandidate
   // Language field
   language?: "fr" | "en" | "candidate_choice"
+  // Technical interview parameter
+  more_technical?: boolean
   // External company fields
   external_company_name?: string
   external_company_email?: string
@@ -104,6 +106,7 @@ export default function GuestApplyPage() {
         localStorage.removeItem('interview_job_title');
         localStorage.removeItem('interview_company');
         localStorage.removeItem('interview_language');
+        localStorage.removeItem('interview_more_technical');
         localStorage.removeItem('company_size');
         localStorage.removeItem('company_sector');
         localStorage.removeItem('company_about');
@@ -161,6 +164,21 @@ export default function GuestApplyPage() {
           // Default to French if no language specified
           localStorage.setItem('interview_language', 'fr');
           console.log('No language specified in API response, defaulting to French');
+        }
+        
+        // Store more_technical parameter
+        console.log('=== MORE_TECHNICAL DEBUG ===');
+        console.log('data.more_technical from API:', data.more_technical);
+        console.log('typeof data.more_technical:', typeof data.more_technical);
+        console.log('============================');
+        
+        if (data.more_technical !== undefined && data.more_technical !== null) {
+          localStorage.setItem('interview_more_technical', String(data.more_technical));
+          console.log(`Stored more_technical: ${data.more_technical}`);
+        } else {
+          // Default to false if not specified
+          localStorage.setItem('interview_more_technical', 'false');
+          console.log('No more_technical specified in API response, defaulting to false');
         }
         
         // Store job questions if available

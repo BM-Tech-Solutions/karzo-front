@@ -25,6 +25,8 @@ export interface InvitationCreate {
   tts_stability?: number;
   tts_speed?: number;
   tts_similarity_boost?: number;
+  // Technical interview parameter
+  more_technical?: boolean;
   // External company fields
   external_company_name?: string;
   external_company_email?: string;
@@ -45,6 +47,8 @@ export interface BulkInvitationCreate {
   tts_stability?: number;
   tts_speed?: number;
   tts_similarity_boost?: number;
+  // Technical interview parameter
+  more_technical?: boolean;
   // External company fields
   external_company_name?: string;
   external_company_email?: string;
