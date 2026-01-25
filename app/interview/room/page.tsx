@@ -89,6 +89,7 @@ export default function InterviewRoomPage() {
         'interview_job_title',
         'interview_company',
         'interview_more_technical',
+        'interview_anonymous',
         'company_size',
         'company_sector',
         'company_about',
@@ -493,6 +494,7 @@ export default function InterviewRoomPage() {
       
       // Get more_technical parameter from localStorage (set by recruiter during invitation)
       const moreTechnical = localStorage.getItem('interview_more_technical');
+      const anonymousFlag = localStorage.getItem('interview_anonymous');
       
       console.log('=== MORE_TECHNICAL PARAMETER FROM LOCALSTORAGE ===');
       console.log('More Technical raw:', moreTechnical);
@@ -500,6 +502,11 @@ export default function InterviewRoomPage() {
       console.log('More Technical (parsed):', moreTechnical === 'true');
       console.log('More Technical boolean:', Boolean(moreTechnical === 'true'));
       console.log('==================================================');
+      console.log('=== ANONYMOUS PARAMETER FROM LOCALSTORAGE ===');
+      console.log('Anonymous raw:', anonymousFlag);
+      console.log('Anonymous type:', typeof anonymousFlag);
+      console.log('Anonymous (parsed):', anonymousFlag === 'true');
+      console.log('=============================================');
       
       // Get form data for the conversation
       const formData = {
@@ -531,7 +538,9 @@ export default function InterviewRoomPage() {
         ...(ttsSpeed && { ttsSpeed: parseFloat(ttsSpeed) }),
         ...(ttsSimilarityBoost && { ttsSimilarityBoost: parseFloat(ttsSimilarityBoost) }),
         // Technical interview parameter
-        more_technical: moreTechnical === 'true'
+        more_technical: moreTechnical === 'true',
+        // Anonymous parameter
+        anonymous: anonymousFlag === 'true'
       };
       
       // Debug: Log what we're sending to ElevenLabs
@@ -555,6 +564,7 @@ export default function InterviewRoomPage() {
       console.log('- guest_candidate_name:', localStorage.getItem('guest_candidate_name'));
       console.log('- interview_language:', localStorage.getItem('interview_language'));
       console.log('- interview_more_technical:', localStorage.getItem('interview_more_technical'));
+      console.log('- interview_anonymous:', localStorage.getItem('interview_anonymous'));
       console.log('===================================');
 
       // Start the conversation with ElevenLabs

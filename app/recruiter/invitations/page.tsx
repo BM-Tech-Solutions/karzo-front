@@ -42,6 +42,7 @@ export default function InvitationsPage() {
       jobOfferId: undefined,
       message: "",
       more_technical: false,
+      anonymous: false,
       isExternalCompany: false,
       externalCompanyName: "",
       externalCompanyEmail: "",
@@ -90,7 +91,8 @@ export default function InvitationsPage() {
         email: values.email,
         job_offer_id: values.jobOfferId,
         message: values.message,
-        more_technical: values.more_technical
+        more_technical: values.more_technical,
+        anonymous: values.anonymous
       }
 
       // Add external company data if selected
@@ -267,6 +269,30 @@ export default function InvitationsPage() {
                             </FormLabel>
                             <p className="text-sm text-muted-foreground">
                               Enable this to make the interview more technically focused and challenging
+                            </p>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Anonymous Toggle */}
+                    <FormField
+                      control={form.control}
+                      name="anonymous"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">
+                              Anonymous Interview
+                            </FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              Enable this to mark the session as anonymous for the AI interviewer
                             </p>
                           </div>
                           <FormControl>

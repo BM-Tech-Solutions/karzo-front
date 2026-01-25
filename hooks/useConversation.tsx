@@ -47,6 +47,8 @@ interface FormData {
   ttsSimilarityBoost?: number;
   // Technical interview parameter
   more_technical?: boolean;
+  // Anonymous parameter
+  anonymous?: boolean;
 }
 
 interface SessionInfo {
@@ -160,7 +162,8 @@ export const useConversation = () => {
           external_company_about: formData.external_company_about || '',
           external_company_website: formData.external_company_website || '',
           joboffer_questions: formData.jobOfferQuestions && Array.isArray(formData.jobOfferQuestions) && formData.jobOfferQuestions.length > 0 ? JSON.stringify(formData.jobOfferQuestions) : '[]',
-          more_technical: formData.more_technical || false
+          more_technical: formData.more_technical || false,
+          anonymous: formData.anonymous || false
         },
         // Build overrides object for language and TTS parameters
         ...(() => {

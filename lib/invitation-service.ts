@@ -27,6 +27,8 @@ export interface InvitationCreate {
   tts_similarity_boost?: number;
   // Technical interview parameter
   more_technical?: boolean;
+  // Anonymous parameter
+  anonymous?: boolean;
   // External company fields
   external_company_name?: string;
   external_company_email?: string;
@@ -49,6 +51,8 @@ export interface BulkInvitationCreate {
   tts_similarity_boost?: number;
   // Technical interview parameter
   more_technical?: boolean;
+  // Anonymous parameter
+  anonymous?: boolean;
   // External company fields
   external_company_name?: string;
   external_company_email?: string;

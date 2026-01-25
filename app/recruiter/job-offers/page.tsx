@@ -83,6 +83,8 @@ export default function JobOffersPage() {
     tts_similarity_boost: z.number().min(0).max(1).optional(),
     // Technical interview parameter
     more_technical: z.boolean().optional(),
+    // Anonymous interview parameter
+    anonymous: z.boolean().optional(),
     // External company fields
     isExternalCompany: z.boolean().optional(),
     externalCompanyName: z.string().optional(),
@@ -116,6 +118,8 @@ export default function JobOffersPage() {
       tts_similarity_boost: 0.8,
       // Technical interview parameter default
       more_technical: false,
+      // Anonymous parameter default
+      anonymous: false,
       isExternalCompany: false,
       externalCompanyName: "",
       externalCompanyEmail: "",
@@ -240,6 +244,8 @@ export default function JobOffersPage() {
             ...(values.tts_similarity_boost !== undefined && { tts_similarity_boost: values.tts_similarity_boost }),
             // Add technical interview parameter
             more_technical: values.more_technical || false,
+            // Add anonymous parameter
+            anonymous: values.anonymous || false,
             // Add external company data if selected
             ...(values.isExternalCompany && {
               external_company_name: values.externalCompanyName,
@@ -724,6 +730,30 @@ export default function JobOffersPage() {
                           console.log('Switch changed to:', value);
                           field.onChange(value);
                         }}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Anonymous Toggle */}
+              <FormField
+                control={inviteForm.control}
+                name="anonymous"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        Anonymous Interview
+                      </FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Enable this to mark the session as anonymous for the AI interviewer
+                      </p>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
                       />
                     </FormControl>
                   </FormItem>

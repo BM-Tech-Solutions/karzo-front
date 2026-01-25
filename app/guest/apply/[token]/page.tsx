@@ -37,6 +37,8 @@ interface InvitationDetails {
   language?: "fr" | "en" | "candidate_choice"
   // Technical interview parameter
   more_technical?: boolean
+  // Anonymous parameter
+  anonymous?: boolean
   // External company fields
   external_company_name?: string
   external_company_email?: string
@@ -107,6 +109,7 @@ export default function GuestApplyPage() {
         localStorage.removeItem('interview_company');
         localStorage.removeItem('interview_language');
         localStorage.removeItem('interview_more_technical');
+        localStorage.removeItem('interview_anonymous');
         localStorage.removeItem('company_size');
         localStorage.removeItem('company_sector');
         localStorage.removeItem('company_about');
@@ -179,6 +182,20 @@ export default function GuestApplyPage() {
           // Default to false if not specified
           localStorage.setItem('interview_more_technical', 'false');
           console.log('No more_technical specified in API response, defaulting to false');
+        }
+
+        // Store anonymous parameter
+        console.log('=== ANONYMOUS DEBUG ===');
+        console.log('data.anonymous from API:', data.anonymous);
+        console.log('typeof data.anonymous:', typeof data.anonymous);
+        console.log('=======================');
+
+        if (data.anonymous !== undefined && data.anonymous !== null) {
+          localStorage.setItem('interview_anonymous', String(data.anonymous));
+          console.log(`Stored anonymous: ${data.anonymous}`);
+        } else {
+          localStorage.setItem('interview_anonymous', 'false');
+          console.log('No anonymous specified in API response, defaulting to false');
         }
         
         // Store job questions if available
